@@ -16,7 +16,7 @@
     </Teleport>
 
     <div class="live-stage">
-      <div v-if="state === 'idle' || state === 'failed'" class="idle-panel">
+      <div v-if="state === 'idle' || state === 'failed' || state === 'requesting'" class="idle-panel">
         <i-lucide:camera class="idle-icon" />
         <p class="idle-title">{{ $t('live_camera') }}</p>
         <p class="idle-hint">{{ $t('live_camera_idle_hint') }}</p>
@@ -59,7 +59,7 @@ const { t } = useI18n()
 const route = useRoute()
 const isActive = computed(() => route.path === '/live-camera')
 
-type LiveState = 'idle' | 'connecting' | 'streaming' | 'failed'
+type LiveState = 'idle' | 'requesting' | 'connecting' | 'streaming' | 'failed'
 const state = ref<LiveState>('idle')
 const facing = ref<'back' | 'front'>('back')
 const videoEl = ref<HTMLVideoElement>()
@@ -128,7 +128,7 @@ const { mutate: stopMutate, loading: stopLoading, onDone: onStopDone, onError: o
   initMutation({ document: stopLiveCameraGQL })
 const { mutate: switchMutate } = initMutation({ document: switchLiveCameraFacingGQL })
 
-const start = () => { state.value = 'connecting'; startMutate({ facing: facing.value }) }
+const start = () => { state.value = 'requesting'; startMutate({ facing: facing.value }) }
 const stop = () => stopMutate()
 const switchFacing = () => switchMutate()
 

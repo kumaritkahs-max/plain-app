@@ -26,26 +26,44 @@ class LiveCameraWebRtcManager(private val context: Context) {
         private set
 
     fun start(initialFacing: String): Boolean {
-        facing = if (initialFacing == "front") "front" else "back"
-        eglBase = EglBase.create()
-        val (f, a) = createSimpleWebRtcFactory(context, eglBase!!)
-        factory = f; adm = a
-        val enumerator = Camera2Enumerator(context)
-        val deviceName = pickDevice(enumerator, facing) ?: run {
-            LogCat.e("live camera: no camera devices found")
+        try {
+            facing = if (initialFacing == "front") "front" else "back"
+            LogCat.d("live camera: starting with facing=$facing")
+            eglBase = EglBase.create()
+            val (f, a) = createSimpleWebRtcFactory(context, eglBase!!)
+            factory = f; adm = a
+            val enumerator = Camera2Enumerator(context)
+            val devices = enumerator.deviceNames
+            LogCat.d("live camera: ${devices.size} device(s) available: ${devices.joinToString()}")
+            val deviceName = pickDevice(enumerator, facing) ?: run {
+                LogCat.e("live camera: no camera devices found (Camera2 returned empty list)")
+                return false
+            }
+            LogCat.d("live camera: opening device=$deviceName")
+            val cap = enumerator.createCapturer(deviceName, object : org.webrtc.CameraVideoCapturer.CameraEventsHandler {
+                override fun onCameraError(err: String) { LogCat.e("live camera: device error: $err") }
+                override fun onCameraDisconnected() { LogCat.e("live camera: device disconnected") }
+                override fun onCameraFreezed(err: String) { LogCat.e("live camera: device frozen: $err") }
+                override fun onCameraOpening(name: String) { LogCat.d("live camera: opening $name") }
+                override fun onFirstFrameAvailable() { LogCat.d("live camera: first frame available") }
+                override fun onCameraClosed() { LogCat.d("live camera: device closed") }
+            }) ?: run {
+                LogCat.e("live camera: createCapturer failed for $deviceName")
+                return false
+            }
+            capturer = cap
+            surfaceHelper = SurfaceTextureHelper.create("LiveCameraThread", eglBase!!.eglBaseContext)
+            videoSource = factory!!.createVideoSource(false)
+            cap.initialize(surfaceHelper, context, videoSource!!.capturerObserver)
+            cap.startCapture(1280, 720, 30)
+            videoTrack = factory!!.createVideoTrack("live_camera_video", videoSource)
+            LogCat.d("live camera: capture started 1280x720@30, track id=${videoTrack?.id()}")
+            return true
+        } catch (e: Throwable) {
+            LogCat.e("live camera: start failed: ${e.javaClass.simpleName}: ${e.message}")
+            e.stackTrace.take(8).forEach { LogCat.e("    at $it") }
             return false
         }
-        val cap = enumerator.createCapturer(deviceName, null) ?: run {
-            LogCat.e("live camera: createCapturer failed for $deviceName")
-            return false
-        }
-        capturer = cap
-        surfaceHelper = SurfaceTextureHelper.create("LiveCameraThread", eglBase!!.eglBaseContext)
-        videoSource = factory!!.createVideoSource(false)
-        cap.initialize(surfaceHelper, context, videoSource!!.capturerObserver)
-        cap.startCapture(1280, 720, 30)
-        videoTrack = factory!!.createVideoTrack("live_camera_video", videoSource)
-        return true
     }
 
     fun switchFacing() {
@@ -60,18 +78,20 @@ class LiveCameraWebRtcManager(private val context: Context) {
     }
 
     fun handleSignaling(clientId: String, message: WebRtcSignalingMessage) {
+        LogCat.d("live camera: signaling type=${message.type} from client=$clientId")
         when (message.type) {
             "ready" -> {
-                val factory = factory ?: return
-                val track = videoTrack ?: return
+                val factory = factory ?: run { LogCat.e("live camera: ignoring 'ready' — factory is null"); return }
+                val track = videoTrack ?: run { LogCat.e("live camera: ignoring 'ready' — videoTrack is null"); return }
                 sessions.remove(clientId)?.release()
                 val s = LivePeerSession(clientId, "camera", factory, track, null)
                 sessions[clientId] = s
                 s.createPeerConnectionAndOffer()
             }
             "answer" -> if (!message.sdp.isNullOrBlank()) sessions[clientId]?.handleAnswer(message.sdp)
+                else LogCat.e("live camera: 'answer' missing sdp from $clientId")
             "ice_candidate" -> if (!message.candidate.isNullOrBlank()) sessions[clientId]?.handleIceCandidate(message)
-            else -> Unit
+            else -> LogCat.d("live camera: ignoring unknown signaling type=${message.type}")
         }
     }
 

@@ -32,6 +32,7 @@ class LiveMicService : LifecycleService() {
     @SuppressLint("WrongConstant")
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         super.onStartCommand(intent, flags, startId)
+        LogCat.d("LiveMicService onStartCommand")
 
         if (notificationId == 0) notificationId = NotificationHelper.generateId()
         val notification = NotificationHelper.createLiveServiceNotification(

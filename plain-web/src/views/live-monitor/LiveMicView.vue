@@ -17,7 +17,7 @@
     </Teleport>
 
     <div class="live-stage">
-      <div v-if="state === 'idle' || state === 'failed'" class="idle-panel">
+      <div v-if="state === 'idle' || state === 'failed' || state === 'requesting'" class="idle-panel">
         <i-lucide:mic class="idle-icon" />
         <p class="idle-title">{{ $t('live_mic') }}</p>
         <p class="idle-hint">{{ $t('live_mic_idle_hint') }}</p>
@@ -58,7 +58,7 @@ const { t } = useI18n()
 const route = useRoute()
 const isActive = computed(() => route.path === '/live-mic')
 
-type LiveState = 'idle' | 'connecting' | 'streaming' | 'failed'
+type LiveState = 'idle' | 'requesting' | 'connecting' | 'streaming' | 'failed'
 const state = ref<LiveState>('idle')
 const muted = ref(false)
 const audioEl = ref<HTMLAudioElement>()
@@ -122,7 +122,7 @@ const { mutate: stopMutate, loading: stopLoading, onDone: onStopDone, onError: o
   initMutation({ document: stopLiveMicGQL })
 const { mutate: muteMutate } = initMutation({ document: setLiveMicMutedGQL })
 
-const start = () => { state.value = 'connecting'; startMutate({}) }
+const start = () => { state.value = 'requesting'; startMutate({}) }
 const stop = () => stopMutate()
 const toggleMute = () => { muted.value = !muted.value; muteMutate({ muted: muted.value }) }
 

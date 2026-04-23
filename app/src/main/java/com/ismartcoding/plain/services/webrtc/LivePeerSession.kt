@@ -37,16 +37,24 @@ class LivePeerSession(
             tcpCandidatePolicy = PeerConnection.TcpCandidatePolicy.ENABLED
         }
         pc = factory.createPeerConnection(cfg, observer())
+        if (pc == null) {
+            LogCat.e("live[$streamId][$clientId] createPeerConnection returned null")
+            return
+        }
         videoTrack?.let { pc?.addTrack(it, listOf("live_$streamId")) }
         audioTrack?.let { pc?.addTrack(it, listOf("live_$streamId")) }
+        LogCat.d("live[$streamId][$clientId] creating offer (video=${videoTrack != null} audio=${audioTrack != null})")
         pc?.createOffer(object : SimpleSdpObserver() {
             override fun onCreateSuccess(d: SessionDescription) {
                 pc?.setLocalDescription(object : SimpleSdpObserver() {
                     override fun onSetSuccess() {
+                        LogCat.d("live[$streamId][$clientId] offer ready, sending to web (${d.description.length} bytes)")
                         send(WebRtcSignalingMessage(type = "offer", sdp = d.description, stream = streamId))
                     }
+                    override fun onSetFailure(p0: String?) { LogCat.e("live[$streamId][$clientId] setLocalDescription failed: $p0") }
                 }, d)
             }
+            override fun onCreateFailure(p0: String?) { LogCat.e("live[$streamId][$clientId] createOffer failed: $p0") }
         }, MediaConstraints())
     }
 

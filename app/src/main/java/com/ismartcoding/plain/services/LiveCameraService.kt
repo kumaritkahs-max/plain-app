@@ -33,6 +33,7 @@ class LiveCameraService : LifecycleService() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         super.onStartCommand(intent, flags, startId)
         val facing = intent?.getStringExtra("facing") ?: "back"
+        LogCat.d("LiveCameraService onStartCommand facing=$facing")
 
         if (notificationId == 0) notificationId = NotificationHelper.generateId()
         val notification = NotificationHelper.createLiveServiceNotification(

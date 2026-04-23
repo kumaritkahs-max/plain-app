@@ -1,6 +1,7 @@
 package com.ismartcoding.plain.services.webrtc
 
 import android.content.Context
+import com.ismartcoding.lib.logcat.LogCat
 import com.ismartcoding.plain.web.websocket.WebRtcSignalingMessage
 import org.webrtc.AudioSource
 import org.webrtc.AudioTrack
@@ -21,13 +22,21 @@ class LiveMicWebRtcManager(private val context: Context) {
         private set
 
     fun start(): Boolean {
-        eglBase = EglBase.create()
-        val (f, a) = createSimpleWebRtcFactory(context, eglBase!!)
-        factory = f; adm = a
-        audioSource = factory!!.createAudioSource(MediaConstraints())
-        audioTrack = factory!!.createAudioTrack("live_mic_audio", audioSource)
-        audioTrack?.setEnabled(!muted)
-        return true
+        try {
+            LogCat.d("live mic: starting")
+            eglBase = EglBase.create()
+            val (f, a) = createSimpleWebRtcFactory(context, eglBase!!)
+            factory = f; adm = a
+            audioSource = factory!!.createAudioSource(MediaConstraints())
+            audioTrack = factory!!.createAudioTrack("live_mic_audio", audioSource)
+            audioTrack?.setEnabled(!muted)
+            LogCat.d("live mic: audio track ready id=${audioTrack?.id()} muted=$muted")
+            return true
+        } catch (e: Throwable) {
+            LogCat.e("live mic: start failed: ${e.javaClass.simpleName}: ${e.message}")
+            e.stackTrace.take(8).forEach { LogCat.e("    at $it") }
+            return false
+        }
     }
 
     fun setMuted(m: Boolean) {
@@ -36,18 +45,20 @@ class LiveMicWebRtcManager(private val context: Context) {
     }
 
     fun handleSignaling(clientId: String, message: WebRtcSignalingMessage) {
+        LogCat.d("live mic: signaling type=${message.type} from client=$clientId")
         when (message.type) {
             "ready" -> {
-                val factory = factory ?: return
-                val track = audioTrack ?: return
+                val factory = factory ?: run { LogCat.e("live mic: ignoring 'ready' — factory is null"); return }
+                val track = audioTrack ?: run { LogCat.e("live mic: ignoring 'ready' — audioTrack is null"); return }
                 sessions.remove(clientId)?.release()
                 val s = LivePeerSession(clientId, "mic", factory, null, track)
                 sessions[clientId] = s
                 s.createPeerConnectionAndOffer()
             }
             "answer" -> if (!message.sdp.isNullOrBlank()) sessions[clientId]?.handleAnswer(message.sdp)
+                else LogCat.e("live mic: 'answer' missing sdp from $clientId")
             "ice_candidate" -> if (!message.candidate.isNullOrBlank()) sessions[clientId]?.handleIceCandidate(message)
-            else -> Unit
+            else -> LogCat.d("live mic: ignoring unknown signaling type=${message.type}")
         }
     }
 

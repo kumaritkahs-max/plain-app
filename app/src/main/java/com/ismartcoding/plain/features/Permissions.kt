@@ -313,6 +313,12 @@ object Permissions {
                 PermissionItem.create(context, R.drawable.package2, Permission.QUERY_ALL_PACKAGES)
             )
         }
+        list.add(
+            PermissionItem.create(context, R.drawable.video, Permission.CAMERA)
+        )
+        list.add(
+            PermissionItem.create(context, R.drawable.audio_lines, Permission.RECORD_AUDIO)
+        )
         return list
     }
 
