@@ -30,6 +30,7 @@ import com.ismartcoding.plain.packageManager
 import com.ismartcoding.plain.powerManager
 import com.ismartcoding.plain.preferences.LocalApiPermissions
 import com.ismartcoding.plain.preferences.LocalKeepAwake
+import com.ismartcoding.plain.preferences.LocalShowServiceNotification
 import com.ismartcoding.plain.preferences.WebSettingsProvider
 import com.ismartcoding.plain.ui.base.BottomSpace
 import com.ismartcoding.plain.ui.base.PCard
@@ -53,6 +54,7 @@ fun WebSettingsPage(navController: NavHostController, webVM: WebConsoleViewModel
     WebSettingsProvider {
         val context = LocalContext.current
         val keepAwake = LocalKeepAwake.current
+        val showServiceNotification = LocalShowServiceNotification.current
         val scope = rememberCoroutineScope()
         val enabledPermissions = LocalApiPermissions.current
         val permissionList = remember { mutableStateOf(Permissions.getWebList(context)) }
@@ -151,6 +153,20 @@ fun WebSettingsPage(navController: NavHostController, webVM: WebConsoleViewModel
                         }
                     }
                     Tips(stringResource(R.string.keep_awake_tips))
+                    VerticalSpace(dp = 16.dp)
+                    PCard {
+                        PListItem(
+                            modifier = Modifier.clickable {
+                                toggleServiceNotification(scope, context, !showServiceNotification)
+                            },
+                            title = stringResource(R.string.show_service_notification)
+                        ) {
+                            PSwitch(activated = showServiceNotification) { enable ->
+                                toggleServiceNotification(scope, context, enable)
+                            }
+                        }
+                    }
+                    Tips(stringResource(R.string.show_service_notification_tips))
                     VerticalSpace(dp = 16.dp)
                     PCard {
                         PListItem(modifier = Modifier.clickable {

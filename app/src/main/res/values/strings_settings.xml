@@ -35,6 +35,8 @@
     <string name="battery_optimization_disabled">Battery optimization is disabled</string>
     <string name="battery_optimization_tips">Turn off battery optimization to keep the web access working when the screen is off.</string>
     <string name="keep_awake">Keep awake</string>
+    <string name="show_service_notification">Show service notification</string>
+    <string name="show_service_notification_tips">When enabled, the persistent \"running\" notification is shown in your status bar. The web server and Cloudflare tunnel will keep running either way — this only controls whether you see the notification.</string>
     <string name="keep_awake_tips">Keep web access always online (uses more battery). Turn this on if it stops working when your phone sleeps.</string>
     <string name="generate_password">Generate password</string>
     <string name="privacy_policy">Privacy policy</string>

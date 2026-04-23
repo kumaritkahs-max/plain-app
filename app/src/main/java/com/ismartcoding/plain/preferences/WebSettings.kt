@@ -17,6 +17,7 @@ data class WebSettings(
     val keepAwake: Boolean,
     val apiPermissions: Set<String>,
     val rotateUrlTokenOnRestart: Boolean,
+    val showServiceNotification: Boolean,
 )
 
 val LocalPasswordType = compositionLocalOf { PasswordTypePreference.default }
@@ -27,6 +28,7 @@ val LocalAuthDevToken = compositionLocalOf { AuthDevTokenPreference.default }
 val LocalAdbToken = compositionLocalOf { AdbTokenPreference.default }
 val LocalKeepAwake = compositionLocalOf { KeepAwakePreference.default }
 val LocalRotateUrlTokenOnRestart = compositionLocalOf { RotateUrlTokenOnRestartPreference.default }
+val LocalShowServiceNotification = compositionLocalOf { ShowServiceNotificationPreference.default }
 
 @Composable
 fun WebSettingsProvider(content: @Composable () -> Unit) {
@@ -41,6 +43,7 @@ fun WebSettingsProvider(content: @Composable () -> Unit) {
             keepAwake = KeepAwakePreference.default,
             apiPermissions = ApiPermissionsPreference.default,
             rotateUrlTokenOnRestart = RotateUrlTokenOnRestartPreference.default,
+            showServiceNotification = ShowServiceNotificationPreference.default,
         )
     val settings =
         remember {
@@ -54,6 +57,7 @@ fun WebSettingsProvider(content: @Composable () -> Unit) {
                     keepAwake = KeepAwakePreference.get(it),
                     apiPermissions = ApiPermissionsPreference.get(it),
                     rotateUrlTokenOnRestart = RotateUrlTokenOnRestartPreference.get(it),
+                    showServiceNotification = ShowServiceNotificationPreference.get(it),
                 )
             }
         }.collectAsStateValue(
@@ -69,6 +73,7 @@ fun WebSettingsProvider(content: @Composable () -> Unit) {
         LocalKeepAwake provides settings.keepAwake,
         LocalApiPermissions provides settings.apiPermissions,
         LocalRotateUrlTokenOnRestart provides settings.rotateUrlTokenOnRestart,
+        LocalShowServiceNotification provides settings.showServiceNotification,
     ) {
         content()
     }

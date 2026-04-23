@@ -850,6 +850,11 @@ object KeepAliveVpnEnabledPreference : BasePreference<Boolean>() {
     override val key = booleanPreferencesKey("keepalive_vpn_enabled")
 }
 
+object ShowServiceNotificationPreference : BasePreference<Boolean>() {
+    override val default = false
+    override val key = booleanPreferencesKey("show_service_notification")
+}
+
 object KeepAliveDeviceAdminEnabledPreference : BasePreference<Boolean>() {
     override val default = false
     override val key = booleanPreferencesKey("keepalive_device_admin_enabled")

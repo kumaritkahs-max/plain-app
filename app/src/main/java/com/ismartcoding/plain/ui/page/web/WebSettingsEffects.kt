@@ -19,6 +19,7 @@ import com.ismartcoding.plain.features.PermissionItem
 import com.ismartcoding.plain.features.Permissions
 import com.ismartcoding.plain.powerManager
 import com.ismartcoding.plain.preferences.ApiPermissionsPreference
+import com.ismartcoding.plain.preferences.ShowServiceNotificationPreference
 import com.ismartcoding.plain.preferences.WebPreference
 import com.ismartcoding.plain.services.PNotificationListenerService
 import com.ismartcoding.plain.ui.helpers.DialogHelper
@@ -60,6 +61,15 @@ internal fun WebSettingsEffects(
                     }
                 }
             }
+        }
+    }
+}
+
+internal fun toggleServiceNotification(scope: CoroutineScope, context: android.content.Context, enable: Boolean) {
+    scope.launch {
+        withIO { ShowServiceNotificationPreference.putAsync(context, enable) }
+        if (enable && !Permission.POST_NOTIFICATIONS.can(context)) {
+            sendEvent(RequestPermissionsEvent(Permission.POST_NOTIFICATIONS))
         }
     }
 }
