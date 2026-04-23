@@ -24,9 +24,16 @@ object TunnelDiagnostics {
             l.contains("no rules") && l.contains("ingress") ->
                 "Tunnel has no Public Hostname rule. In Cloudflare Zero Trust → Tunnels → your tunnel → Public Hostname tab, add: Subdomain + Domain → Service http://localhost:<your web console port>."
 
-            // Connectivity to Cloudflare edge
-            l.contains("connection refused") && l.contains("argotunnel") ->
-                "Phone can reach DNS but Cloudflare's edge port 7844 is blocked here (some carriers/Wi-Fi block it). Try a different network, or your carrier's data."
+            // Android-specific: Go runtime can't read /etc/resolv.conf so it
+            // queries [::1]:53 / 127.0.0.1:53 (loopback) and immediately gets
+            // "connection refused". This is NOT a port-7844 problem.
+            (l.contains("[::1]:53") || l.contains("127.0.0.1:53")) && l.contains("connection refused") ->
+                "cloudflared cannot read Android's DNS settings (Go runtime limitation). Edge IPs are now passed via --edge to bypass this — restart should fix it."
+
+            // Connectivity to Cloudflare edge (genuine port-7844 block)
+            l.contains("connection refused") && l.contains("argotunnel") &&
+                !l.contains("[::1]:53") && !l.contains("127.0.0.1:53") ->
+                "Cloudflare's edge port 7844 is blocked on this network. Try a different Wi-Fi or your carrier's data."
 
             l.contains("dial tcp") && l.contains("i/o timeout") ->
                 "Network timeout reaching Cloudflare edge. Phone has weak/no internet, or a firewall is blocking outbound 7844/443."

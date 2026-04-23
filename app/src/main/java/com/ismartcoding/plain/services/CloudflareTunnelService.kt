@@ -30,6 +30,9 @@ import kotlinx.coroutines.delay
 import java.io.BufferedReader
 import java.io.File
 import java.io.InputStreamReader
+import java.net.Inet4Address
+import java.net.Inet6Address
+import java.net.InetAddress
 
 /**
  * Foreground service that runs the bundled `cloudflared` binary. Logs *every*
@@ -208,6 +211,47 @@ class CloudflareTunnelService : Service() {
     }
 
     /**
+     * Resolve Cloudflare's edge SRV hostnames using Android's system DNS
+     * (Java `InetAddress`). cloudflared's own resolver fails on Android because
+     * Go can't read `/etc/resolv.conf` and falls back to localhost — which has
+     * no DNS server. Returning these as `--edge IP:7844` lets cloudflared skip
+     * its own SRV lookup entirely.
+     */
+    private fun resolveEdgeIps(): List<String> {
+        val hosts = listOf(
+            "region1.v2.argotunnel.com",
+            "region2.v2.argotunnel.com",
+        )
+        val result = mutableListOf<String>()
+        for (h in hosts) {
+            try {
+                val addrs = InetAddress.getAllByName(h)
+                // Prefer IPv4 first (more universally routable on cellular),
+                // then add IPv6 so dual-stack still has a chance.
+                val v4 = addrs.filterIsInstance<Inet4Address>().mapNotNull { it.hostAddress }
+                val v6 = addrs.filterIsInstance<Inet6Address>().mapNotNull { it.hostAddress }
+                v4.take(4).forEach { result += "$it:7844" }
+                v6.take(2).forEach { result += "[$it]:7844" }
+                TunnelLogger.i(TAG, "edge resolve $h -> ${v4.size} v4, ${v6.size} v6")
+            } catch (t: Throwable) {
+                TunnelLogger.w(TAG, "edge resolve $h failed: ${t.message}")
+            }
+        }
+        if (result.isEmpty()) {
+            // Hardcoded fallback — Cloudflare's stable v2 edge anycast IPs. If even
+            // Java DNS failed (captive portal? VPN?), at least try these.
+            TunnelLogger.w(TAG, "no edges resolved — using hardcoded fallback IPs")
+            result += listOf(
+                "198.41.192.7:7844",
+                "198.41.192.27:7844",
+                "198.41.200.13:7844",
+                "198.41.200.23:7844",
+            )
+        }
+        return result
+    }
+
+    /**
      * Block until ConnectivityManager reports an active network with both
      * INTERNET and VALIDATED capability, or [timeoutMs] elapses. Returns true
      * if a usable network appeared. Polls every 1 s — cheap and survives the
@@ -304,8 +348,14 @@ class CloudflareTunnelService : Service() {
 
         TunnelPreflight.run(this)
 
-        TunnelLogger.i(TAG, "Launching cloudflared with --protocol $protocol")
-        val cmd = listOf(
+        // Pre-resolve Cloudflare's edge IPs in Java. cloudflared on Android can't
+        // read system DNS (no /etc/resolv.conf), so its own SRV lookup at
+        // [::1]:53 fails with "connection refused" before it ever opens 7844.
+        // We feed the IPs directly via --edge to skip the broken lookup.
+        val edgeIps = resolveEdgeIps()
+
+        TunnelLogger.i(TAG, "Launching cloudflared with --protocol $protocol  edges=${edgeIps.size}")
+        val cmd = mutableListOf(
             binary.absolutePath,
             "tunnel",
             "--no-autoupdate",
@@ -313,9 +363,11 @@ class CloudflareTunnelService : Service() {
             "--protocol", protocol,
             "--loglevel", "debug",
             "--transport-loglevel", "debug",
-            "run",
-            "--token", token,
         )
+        for (ep in edgeIps) {
+            cmd += listOf("--edge", ep)
+        }
+        cmd += listOf("run", "--token", token)
         TunnelLogger.i(TAG, "exec: ${cmd.dropLast(1).joinToString(" ")} <token-hidden>")
 
         val pb = ProcessBuilder(cmd)
@@ -324,6 +376,10 @@ class CloudflareTunnelService : Service() {
         pb.environment()["TUNNEL_LOGFILE"] = File(workDir, "cloudflared.log").absolutePath
         pb.environment()["HOME"] = workDir.absolutePath
         pb.environment()["TMPDIR"] = workDir.absolutePath
+        // Force Go's pure-Go resolver and silence its attempts to use cgo
+        // (which would also fail on Android). Combined with --edge IPs above,
+        // cloudflared no longer needs DNS at all to establish the tunnel.
+        pb.environment()["GODEBUG"] = "netdns=go+1"
 
         val p: Process = try {
             pb.start()
