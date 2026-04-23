@@ -9,24 +9,36 @@ import com.ismartcoding.plain.features.Permission
 import com.ismartcoding.plain.services.LiveCameraService
 import com.ismartcoding.plain.services.LiveMicService
 
+private data class LiveCameraState(
+    val running: Boolean,
+    val facing: String,
+    val hasPermission: Boolean,
+)
+
+private data class LiveMicState(
+    val running: Boolean,
+    val muted: Boolean,
+    val hasPermission: Boolean,
+)
+
 fun SchemaBuilder.addLiveMonitorSchema() {
     query("liveCameraState") {
         resolver { ->
             val s = LiveCameraService.instance
-            mapOf(
-                "running" to (s?.isRunning() == true),
-                "facing" to (s?.facing() ?: "back"),
-                "hasPermission" to Permission.CAMERA.can(MainApp.instance),
+            LiveCameraState(
+                running = s?.isRunning() == true,
+                facing = s?.facing() ?: "back",
+                hasPermission = Permission.CAMERA.can(MainApp.instance),
             )
         }
     }
     query("liveMicState") {
         resolver { ->
             val s = LiveMicService.instance
-            mapOf(
-                "running" to (s?.isRunning() == true),
-                "muted" to (s?.isMuted() == true),
-                "hasPermission" to Permission.RECORD_AUDIO.can(MainApp.instance),
+            LiveMicState(
+                running = s?.isRunning() == true,
+                muted = s?.isMuted() == true,
+                hasPermission = Permission.RECORD_AUDIO.can(MainApp.instance),
             )
         }
     }
