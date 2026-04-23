@@ -1,0 +1,47 @@
+
+Run ./gradlew :app:assembleGithubDebug
+Downloading https://services.gradle.org/distributions/gradle-9.4.1-bin.zip
+.............10%.............20%.............30%.............40%.............50%.............60%..............70%.............80%.............90%.............100%
+Welcome to Gradle 9.4.1!
+Here are the highlights of this release:
+ - Java 26 support
+ - Non-class-based JVM tests
+ - Enhanced console progress bar
+For more details see https://docs.gradle.org/9.4.1/release-notes.html
+Starting a Gradle Daemon (subsequent builds will be faster)
+Calculating task graph as no cached configuration is available for tasks: :app:assembleGithubDebug
+> Configure project :app
+WARNING: The option setting 'android.disallowKotlinSourceSets=false' is experimental.
+The current default is 'true'.
+w: file:///home/runner/work/plain-app1/plain-app1/app/build.gradle.kts:138:21: 'fun srcDir(srcDir: Any): Any' is deprecated. Use `directories` mutable set instead.
+e: file:///home/runner/work/plain-app1/plain-app1/app/build.gradle.kts:162:31: Unresolved reference 'io'.
+e: file:///home/runner/work/plain-app1/plain-app1/app/build.gradle.kts:170:22: Unresolved reference 'net'.
+e: file:///home/runner/work/plain-app1/plain-app1/app/build.gradle.kts:170:48: Cannot infer type for type parameter 'T'. Specify it explicitly.
+e: file:///home/runner/work/plain-app1/plain-app1/app/build.gradle.kts:170:48: Cannot infer type for type parameter 'R'. Specify it explicitly.
+e: file:///home/runner/work/plain-app1/plain-app1/app/build.gradle.kts:170:54: Cannot infer type for type parameter 'T'. Specify it explicitly.
+FAILURE: Build failed with an exception.
+Configuration cache entry stored.
+* Where:
+Build file '/home/runner/work/plain-app1/plain-app1/app/build.gradle.kts' line: 138
+* What went wrong:
+Script compilation errors:
+  Line 138:             jniLibs.srcDir(layout.buildDirectory.dir("generated/cloudflared/jniLibs"))
+                                ^ 'fun srcDir(srcDir: Any): Any' is deprecated. Use `directories` mutable set instead.
+  Line 162:             val target = java.io.File(abiDir, "libcloudflared.so")
+                                          ^ Unresolved reference 'io'.
+  Line 170:                 java.net.URL(url).openStream().use { input ->
+                                 ^ Unresolved reference 'net'.
+  Line 170:                 java.net.URL(url).openStream().use { input ->
+                                                           ^ Cannot infer type for type parameter 'T'. Specify it explicitly.
+  Line 170:                 java.net.URL(url).openStream().use { input ->
+                                                           ^ Cannot infer type for type parameter 'R'. Specify it explicitly.
+  Line 170:                 java.net.URL(url).openStream().use { input ->
+                                                                 ^ Cannot infer type for type parameter 'T'. Specify it explicitly.
+6 errors
+* Try:
+> Run with --stacktrace option to get the stack trace.
+> Run with --info or --debug option to get more log output.
+> Run with --scan to get full insights from a Build Scan (powered by Develocity).
+> Get more help at https://help.gradle.org.
+BUILD FAILED in 1m 6s
+Error: Process completed with exit code 1

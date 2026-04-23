@@ -36,6 +36,7 @@ import com.ismartcoding.plain.ui.base.Tips
 import com.ismartcoding.plain.ui.base.TopSpace
 import com.ismartcoding.plain.ui.base.VerticalSpace
 import com.ismartcoding.plain.ui.helpers.WebHelper
+import com.ismartcoding.plain.ui.nav.Routing
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
@@ -162,6 +163,13 @@ fun CloudflareTunnelPage(navController: NavHostController) {
                             val h = hostname.trim()
                             if (h.isNotEmpty()) WebHelper.open(context, "https://$h")
                         },
+                    )
+
+                    VerticalSpace(dp = 12.dp)
+                    PFilledButton(
+                        text = stringResource(R.string.cloudflare_tunnel_view_log),
+                        modifier = Modifier.padding(horizontal = 16.dp),
+                        onClick = { navController.navigate(Routing.CloudflareTunnelLog) },
                     )
 
                     VerticalSpace(dp = 16.dp)

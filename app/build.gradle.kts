@@ -1,4 +1,6 @@
+import java.io.File
 import java.io.FileInputStream
+import java.net.URL
 import java.util.Properties
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
@@ -159,7 +161,7 @@ val downloadCloudflared = tasks.register("downloadCloudflared") {
         val ver = cloudflaredVersion.get()
         cloudflaredAbiToAsset.forEach { (abi, asset) ->
             val abiDir = outRoot.get().dir(abi).asFile.apply { mkdirs() }
-            val target = java.io.File(abiDir, "libcloudflared.so")
+            val target = File(abiDir, "libcloudflared.so")
             if (target.exists() && target.length() > 1_000_000) {
                 logger.lifecycle("cloudflared already present for $abi (${target.length()} bytes)")
                 return@forEach
@@ -167,7 +169,7 @@ val downloadCloudflared = tasks.register("downloadCloudflared") {
             val url = "https://github.com/cloudflare/cloudflared/releases/download/$ver/$asset"
             logger.lifecycle("Downloading cloudflared $ver for $abi from $url")
             try {
-                java.net.URL(url).openStream().use { input ->
+                URL(url).openStream().use { input ->
                     target.outputStream().use { out -> input.copyTo(out) }
                 }
                 target.setExecutable(true)

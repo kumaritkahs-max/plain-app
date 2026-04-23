@@ -22,4 +22,10 @@
     <string name="cloudflare_tunnel_no_token">Tunnel token is empty. Paste a token first.</string>
     <string name="cloudflare_tunnel_binary_missing">Cloudflare tunnel binary missing from APK. Rebuild the app.</string>
     <string name="save_and_apply">Save &amp; Apply</string>
+    <string name="cloudflare_tunnel_view_log">View detailed log</string>
+    <string name="cloudflare_tunnel_log_title">Tunnel log</string>
+    <string name="cloudflare_tunnel_log_empty">Log is empty. Enable the tunnel to see activity.</string>
+    <string name="copy_to_clipboard">Copy</string>
+    <string name="cloudflare_tunnel_copy_full_log">Copy full log</string>
+    <string name="cloudflare_tunnel_log_copied">Copied %1$d characters of log to clipboard</string>
 </resources>

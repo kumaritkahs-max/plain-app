@@ -143,4 +143,7 @@ class Routing {
 
     @Serializable
     object CloudflareTunnel
+
+    @Serializable
+    object CloudflareTunnelLog
 }
