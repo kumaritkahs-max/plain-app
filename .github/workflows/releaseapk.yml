@@ -11,10 +11,6 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-    env:
-      ANDROID_STORE_PASSWORD: ${{ secrets.ANDROID_STORE_PASSWORD }}
-      ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
-      ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -29,15 +25,12 @@ jobs:
       - name: Make gradlew executable
         run: chmod +x ./gradlew
 
-      - name: Restore keystore
-        run: echo "${{ secrets.KEYSTORE_B64 }}" | base64 --decode > ./app/release.jks
-
       - name: Write keystore.properties
         run: |
-          cat > ./keystore.properties <<EOF
-          storePassword=${ANDROID_STORE_PASSWORD}
-          keyPassword=${ANDROID_KEY_PASSWORD}
-          keyAlias=${ANDROID_KEY_ALIAS}
+          cat > ./keystore.properties <<'EOF'
+          storePassword=Sh@090609
+          keyPassword=Sh@090609
+          keyAlias=my-key
           storeFile=release.jks
           EOF
 
