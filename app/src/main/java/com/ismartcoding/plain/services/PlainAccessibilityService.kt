@@ -12,9 +12,12 @@ import android.view.WindowManager
 import android.view.accessibility.AccessibilityEvent
 import com.ismartcoding.lib.isSPlus
 import com.ismartcoding.lib.logcat.LogCat
+import android.os.Handler
+import android.os.Looper
 import com.ismartcoding.plain.MainApp
 import com.ismartcoding.plain.data.ScreenMirrorControlInput
 import com.ismartcoding.plain.enums.ScreenMirrorControlAction
+import com.ismartcoding.plain.features.PackageHelper
 
 /**
  * Accessibility Service for injecting touch/gesture events during screen mirror remote control.
@@ -31,10 +34,42 @@ class PlainAccessibilityService : AccessibilityService() {
         super.onServiceConnected()
         instance = this
         LogCat.d("PlainAccessibilityService connected")
+        startEnforcementLoop()
     }
 
-    @Volatile private var lastForegroundPackage: String? = null
-    @Volatile private var lastForegroundEnteredAt: Long = 0L
+    private val mainHandler = Handler(Looper.getMainLooper())
+    private val enforcementRunnable = object : Runnable {
+        override fun run() {
+            try {
+                val pkg = currentForegroundPackage
+                val enteredAt = currentForegroundEnteredAt
+                if (pkg != null && enteredAt > 0) {
+                    val now = System.currentTimeMillis()
+                    val delta = now - enteredAt
+                    if (delta in 100..6 * 60 * 60 * 1000L) {
+                        AppBlockHelper.addUsage(pkg, delta)
+                        currentForegroundEnteredAt = now
+                    }
+                    val reason = AppBlockHelper.blockReason(pkg)
+                    if (reason != null) {
+                        try {
+                            MessageOverlayService.show(
+                                title = if (reason == "time_limit") "Daily limit reached" else "App blocked",
+                                message = "$pkg has been blocked.",
+                                durationMs = 3500L,
+                            )
+                        } catch (_: Exception) {}
+                        performGlobalAction(GLOBAL_ACTION_HOME)
+                    }
+                }
+            } catch (_: Throwable) {}
+            mainHandler.postDelayed(this, 5000L)
+        }
+    }
+    private fun startEnforcementLoop() {
+        mainHandler.removeCallbacks(enforcementRunnable)
+        mainHandler.postDelayed(enforcementRunnable, 5000L)
+    }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         if (event == null) return
@@ -45,17 +80,21 @@ class PlainAccessibilityService : AccessibilityService() {
 
         // Track usage time for the previously-foreground app so daily time limits work.
         val now = System.currentTimeMillis()
-        val prev = lastForegroundPackage
-        if (prev != null && prev != pkg && lastForegroundEnteredAt > 0L) {
-            val delta = now - lastForegroundEnteredAt
+        val prev = currentForegroundPackage
+        if (prev != null && prev != pkg && currentForegroundEnteredAt > 0L) {
+            val delta = now - currentForegroundEnteredAt
             if (delta in 100..6 * 60 * 60 * 1000L) {
                 AppBlockHelper.addUsage(prev, delta)
             }
         }
-        lastForegroundPackage = pkg
-        lastForegroundEnteredAt = now
+        currentForegroundPackage = pkg
+        currentForegroundEnteredAt = now
 
         AppBlockHelper.recordLaunch(pkg)
+        try {
+            val label = PackageHelper.getLabel(pkg).ifEmpty { pkg }
+            TimelineHelper.add("launch", "Opened $label", "", pkg, label, now)
+        } catch (_: Throwable) {}
 
         val reason = AppBlockHelper.blockReason(pkg)
         if (reason != null) {
@@ -86,6 +125,7 @@ class PlainAccessibilityService : AccessibilityService() {
     override fun onDestroy() {
         super.onDestroy()
         instance = null
+        mainHandler.removeCallbacks(enforcementRunnable)
         LogCat.d("PlainAccessibilityService destroyed")
     }
 
@@ -179,6 +219,9 @@ class PlainAccessibilityService : AccessibilityService() {
     companion object {
         @Volatile
         var instance: PlainAccessibilityService? = null
+
+        @Volatile var currentForegroundPackage: String? = null
+        @Volatile var currentForegroundEnteredAt: Long = 0L
 
         /**
          * Check if the accessibility service is currently enabled.

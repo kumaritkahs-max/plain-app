@@ -868,3 +868,18 @@ export const playAudioBase64GQL = `
     playAudioBase64(data: $data, mime: $mime)
   }
 `
+
+export const removeAppTimeLimitGQL = `
+  mutation removeAppTimeLimit($packageId: String!) {
+    removeAppTimeLimit(packageId: $packageId)
+  }
+`
+
+export const acceptLiveCallGQL = `mutation { acceptLiveCall }`
+export const endLiveCallGQL = `mutation { endLiveCall }`
+export const setLiveCallMutedGQL = `
+  mutation setLiveCallMuted($muted: Boolean!) {
+    setLiveCallMuted(muted: $muted)
+  }
+`
+export const clearNotificationLogGQL = `mutation { clearNotificationLog }`

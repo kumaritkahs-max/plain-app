@@ -14,9 +14,24 @@
             <h3>{{ $t('device_audio') }}</h3>
             <p class="muted">{{ $t('device_audio_desc') }}</p>
           </div>
+          <div class="header-actions">
+            <button class="chip-btn" :class="{ active: micMuted }" @click="toggleMicMute" :disabled="!micOn">
+              <i-lucide:mic-off v-if="micMuted" /><i-lucide:mic v-else />
+              <span>{{ micMuted ? $t('unmute') : $t('mute') }}</span>
+            </button>
+            <label class="switch">
+              <input type="checkbox" :checked="micOn" @change="toggleMic(($event.target as HTMLInputElement).checked)" />
+              <span class="knob"></span>
+            </label>
+            <span>{{ micOn ? $t('on') : $t('off') }}</span>
+          </div>
         </header>
-        <div class="embed">
+        <div v-if="micOn" class="embed">
           <LiveMicView />
+        </div>
+        <div v-else class="placeholder">
+          <i-lucide:mic-off />
+          <p>{{ $t('mic_disabled') }}</p>
         </div>
       </section>
 
@@ -29,6 +44,10 @@
             <p class="muted">{{ $t('device_camera_desc') }}</p>
           </div>
           <div class="header-actions">
+            <button class="chip-btn" @click="flipCamera" :disabled="!cameraOn">
+              <i-lucide:refresh-ccw />
+              <span>{{ $t('flip') }}</span>
+            </button>
             <label class="switch">
               <input type="checkbox" :checked="cameraOn" @change="toggleCam(($event.target as HTMLInputElement).checked)" />
               <span class="knob"></span>
@@ -90,15 +109,19 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import LiveMicView from '@/views/live-monitor/LiveMicView.vue'
 import LiveCameraView from '@/views/live-monitor/LiveCameraView.vue'
-import { initMutation, playAudioBase64GQL } from '@/lib/api/mutation'
+import { initMutation, playAudioBase64GQL, setLiveMicMutedGQL, stopLiveMicGQL, startLiveMicGQL, switchLiveCameraFacingGQL, stopLiveCameraGQL } from '@/lib/api/mutation'
+import { gqlFetch } from '@/lib/api/gql-client'
+import { liveMicStateGQL, liveCameraStateGQL } from '@/lib/api/query'
 import toast from '@/components/toaster'
 import { useI18n } from 'vue-i18n'
 
 const { t } = useI18n()
 const cameraOn = ref(false)
+const micOn = ref(false)
+const micMuted = ref(false)
 const recording = ref(false)
 const sending = ref(false)
 const lastSent = ref<number | null>(null)
@@ -111,8 +134,28 @@ let chunks: Blob[] = []
 let recStart = 0
 
 const { mutate: mPlay } = initMutation({ document: playAudioBase64GQL })
+const { mutate: mStartMic } = initMutation({ document: startLiveMicGQL })
+const { mutate: mStopMic } = initMutation({ document: stopLiveMicGQL })
+const { mutate: mMuteMic } = initMutation({ document: setLiveMicMutedGQL })
+const { mutate: mFlipCam } = initMutation({ document: switchLiveCameraFacingGQL })
+const { mutate: mStopCam } = initMutation({ document: stopLiveCameraGQL })
 
-function toggleCam(on: boolean) { cameraOn.value = on }
+async function toggleMic(on: boolean) {
+  micOn.value = on
+  if (on) await mStartMic()
+  else await mStopMic()
+}
+async function toggleMicMute() {
+  micMuted.value = !micMuted.value
+  await mMuteMic({ muted: micMuted.value })
+}
+async function toggleCam(on: boolean) {
+  cameraOn.value = on
+  if (!on) await mStopCam()
+}
+async function flipCamera() {
+  await mFlipCam()
+}
 
 function formatTime(t: number) { return new Date(t).toLocaleTimeString() }
 
@@ -168,6 +211,17 @@ function cleanup() {
   mediaStream = null; mediaRecorder = null; chunks = []
 }
 
+onMounted(async () => {
+  try {
+    const r = await gqlFetch<{ liveMicState: { running: boolean; muted: boolean } }>(liveMicStateGQL)
+    if (!r.errors) { micOn.value = r.data.liveMicState.running; micMuted.value = r.data.liveMicState.muted }
+  } catch {}
+  try {
+    const r = await gqlFetch<{ liveCameraState: { running: boolean } }>(liveCameraStateGQL)
+    if (!r.errors) cameraOn.value = r.data.liveCameraState.running
+  } catch {}
+})
+
 onUnmounted(() => { cleanup() })
 </script>
 
@@ -189,7 +243,7 @@ onUnmounted(() => { cleanup() })
     .ic { width: 28px; height: 28px; flex-shrink: 0; color: var(--md-sys-color-primary); }
     h3 { margin: 0; font-size: 1rem; font-weight: 600; }
     p.muted { font-size: 0.8125rem; margin: 2px 0 0; }
-    .header-actions { margin-left: auto; display: flex; gap: 10px; align-items: center; }
+    .header-actions { margin-left: auto; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
   }
 }
 .embed {
@@ -216,6 +270,15 @@ onUnmounted(() => { cleanup() })
 }
 .switch input:checked + .knob { background: var(--md-sys-color-primary); }
 .switch input:checked + .knob:before { transform: translateX(18px); background: white; }
+.chip-btn {
+  display: inline-flex; gap: 6px; align-items: center;
+  background: var(--md-sys-color-surface-variant); color: var(--md-sys-color-on-surface);
+  border: none; padding: 6px 12px; border-radius: 999px; font-size: 0.8125rem;
+  cursor: pointer;
+  svg { width: 16px; height: 16px; }
+  &.active { background: var(--md-sys-color-error); color: var(--md-sys-color-on-error); }
+  &:disabled { opacity: 0.5; cursor: not-allowed; }
+}
 
 .badge { display: inline-flex; align-items: center; gap: 6px; font-size: 0.75rem; padding: 4px 10px; border-radius: 999px; }
 .badge-idle { background: var(--md-sys-color-surface-variant); color: var(--md-sys-color-on-surface-variant); }

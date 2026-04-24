@@ -772,6 +772,26 @@ export const blockedAppsStateGQL = `
 
 export const launchHistoryGQL = `
   query launchHistory($limit: Int!) {
-    launchHistory(limit: $limit) { packageId timestamp }
+    launchHistory(limit: $limit) { packageId appName timestamp }
+  }
+`
+
+export const notificationLogGQL = `
+  query {
+    notificationLog { ...NotificationFragment }
+  }
+  ${notificationFragment}
+`
+
+export const timelineEntriesGQL = `
+  query timelineEntries($limit: Int!) {
+    timelineEntries(limit: $limit) { id type title subtitle appId appName time }
+    timelineStartedAt
+  }
+`
+
+export const liveCallStateGQL = `
+  query {
+    liveCallState { state direction source appId appName display startedAt acceptedAt muted }
   }
 `

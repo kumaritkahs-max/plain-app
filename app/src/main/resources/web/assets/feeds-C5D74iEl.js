@@ -1,0 +1,1 @@
+import{V as d,af as a,W as o}from"./index-DaiWUsx7.js";const f=e=>({viewAll:()=>{a(e,"/feeds")},viewFeed:s=>{const u=d([{name:"feed_id",op:"",value:s.id}]);a(e,`/feeds?q=${o(u)}`)},viewToday:()=>{const s=d([{name:"today",op:"",value:"true"}]);a(e,`/feeds?q=${o(s)}`)}});export{f as u};

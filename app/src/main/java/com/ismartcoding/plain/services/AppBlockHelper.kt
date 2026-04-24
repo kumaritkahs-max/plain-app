@@ -93,6 +93,22 @@ object AppBlockHelper {
         return used >= limit
     }
 
+    /** Usage map including the in-progress slice of the currently foregrounded app. */
+    fun getUsageTodayWithLive(currentForegroundPkg: String?, lastEnteredAt: Long, ctx: Context = MainApp.instance): Map<String, Long> {
+        val map = getUsageToday(ctx).toMutableMap()
+        if (!currentForegroundPkg.isNullOrEmpty() && lastEnteredAt > 0) {
+            val delta = (System.currentTimeMillis() - lastEnteredAt).coerceAtLeast(0L)
+            if (delta in 100..6 * 60 * 60 * 1000L) {
+                map[currentForegroundPkg] = (map[currentForegroundPkg] ?: 0L) + delta
+            }
+        }
+        return map
+    }
+
+    fun removeTimeLimit(pkg: String, ctx: Context = MainApp.instance) {
+        setTimeLimit(pkg, 0L, ctx)
+    }
+
     private fun rotateUsageIfNeeded(ctx: Context) {
         val today = todayKey()
         val stored = prefs(ctx).getString(K_USAGE_DAY, null)

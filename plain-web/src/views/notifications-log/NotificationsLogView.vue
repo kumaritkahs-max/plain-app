@@ -4,7 +4,6 @@
       <h2><i-lucide:bell /> {{ $t('page_title.notifications_log') }}</h2>
       <p class="muted">{{ $t('notifications_log_desc') }}</p>
       <div class="meta">
-        <span>{{ $t('since') }}: {{ formatDateTime(startedAtIso) }}</span>
         <span>{{ $t('total') }}: {{ totalCount }}</span>
         <span>{{ $t('unique') }}: {{ groups.length }}</span>
       </div>
@@ -38,22 +37,18 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, reactive } from 'vue'
+import { computed, onMounted, onUnmounted } from 'vue'
 import emitter from '@/plugins/eventbus'
 import { useTempStore } from '@/stores/temp'
 import { storeToRefs } from 'pinia'
 import { getFileUrlByPath } from '@/lib/api/file'
-
-interface Group {
-  key: string; appId: string; appName: string; icon: string;
-  title: string; body: string; count: number; lastTime: number;
-  times: number[]; expanded: boolean;
-}
+import { useNotificationsStore } from '@/stores/notifications-log'
+import { gqlFetch } from '@/lib/api/gql-client'
+import { notificationLogGQL } from '@/lib/api/query'
 
 const { urlTokenKey } = storeToRefs(useTempStore())
-const startedAt = Date.now()
-const startedAtIso = new Date(startedAt).toISOString()
-const groups = ref<Group[]>([])
+const store = useNotificationsStore()
+const groups = computed(() => store.groups)
 
 function formatDateTime(t: number | string) {
   const d = typeof t === 'number' ? new Date(t) : new Date(t)
@@ -62,39 +57,34 @@ function formatDateTime(t: number | string) {
 function formatTime(t: number) { return new Date(t).toLocaleTimeString() }
 const totalCount = computed(() => groups.value.reduce((a, g) => a + g.count, 0))
 
-function onCreated(data: any) {
+function ingest(data: any) {
   if (!data) return
   const ts = data.time ? new Date(data.time).getTime() : Date.now()
-  if (ts < startedAt - 1000) return
-  const key = `${data.appId}|${data.title || ''}|${data.body || ''}`
-  const existing = groups.value.find((g) => g.key === key)
-  if (existing) {
-    existing.count++
-    existing.lastTime = ts
-    existing.times.push(ts)
-    // bubble to top
-    groups.value = [existing, ...groups.value.filter((g) => g !== existing)]
-  } else {
-    groups.value = [reactive<Group>({
-      key,
-      appId: data.appId,
-      appName: data.appName || data.appId,
-      icon: getFileUrlByPath(urlTokenKey.value, 'pkgicon://' + data.appId),
-      title: data.title || '',
-      body: data.body || '',
-      count: 1,
-      lastTime: ts,
-      times: [ts],
-      expanded: false,
-    }), ...groups.value]
-  }
+  store.add({
+    appId: data.appId,
+    appName: data.appName || data.appId,
+    icon: getFileUrlByPath(urlTokenKey.value, 'pkgicon://' + data.appId),
+    title: data.title || '',
+    body: data.body || '',
+    time: ts,
+  })
+}
+
+async function loadInitial() {
+  try {
+    const r = await gqlFetch<{ notificationLog: any[] }>(notificationLogGQL)
+    if (r.errors?.length) return
+    const arr = r.data.notificationLog || []
+    for (const n of arr) ingest(n)
+  } catch (e) { console.error(e) }
 }
 
 onMounted(() => {
-  emitter.on('notification_created', onCreated)
+  emitter.on('notification_created', ingest)
+  if (store.groups.length === 0) loadInitial()
 })
 onUnmounted(() => {
-  emitter.off('notification_created', onCreated)
+  emitter.off('notification_created', ingest)
 })
 </script>
 

@@ -280,12 +280,30 @@
           </div>
         </header>
         <table v-if="state && state.timeLimits.length" class="data-table">
-          <thead><tr><th>{{ $t('package') }}</th><th>{{ $t('daily_limit') }}</th><th>{{ $t('used_today') }}</th></tr></thead>
+          <thead><tr><th>{{ $t('app') }}</th><th>{{ $t('daily_limit') }}</th><th>{{ $t('used_today') }}</th><th>{{ $t('remaining') }}</th><th></th></tr></thead>
           <tbody>
-            <tr v-for="t in state.timeLimits" :key="t.packageId">
-              <td>{{ t.packageId }}</td>
+            <tr v-for="t in state.timeLimits" :key="t.packageId" :class="{ 'over-limit': liveUsed(t) >= t.dailyMs }">
+              <td>
+                <div class="app-cell">
+                  <img :src="iconUrl(t.packageId)" width="24" height="24" />
+                  <div>
+                    <div class="app-name">{{ t.appName || t.packageId }}</div>
+                    <div class="app-pkg muted small">{{ t.packageId }}</div>
+                  </div>
+                </div>
+              </td>
               <td>{{ formatMs(t.dailyMs) }}</td>
-              <td>{{ formatMs(t.usedMs) }}</td>
+              <td>{{ formatMs(liveUsed(t)) }}</td>
+              <td>
+                <span :class="{ 'danger-text': liveUsed(t) >= t.dailyMs }">
+                  {{ liveUsed(t) >= t.dailyMs ? $t('blocked_now') : formatMs(t.dailyMs - liveUsed(t)) }}
+                </span>
+              </td>
+              <td>
+                <v-icon-button class="sm" v-tooltip="$t('delete')" @click="removeLimit(t.packageId)">
+                  <i-lucide:trash-2 />
+                </v-icon-button>
+              </td>
             </tr>
           </tbody>
         </table>
@@ -323,10 +341,18 @@
         <transition name="collapse">
           <div v-if="historyOpen">
             <table v-if="history.length" class="data-table">
-              <thead><tr><th>{{ $t('package') }}</th><th>{{ $t('time') }}</th></tr></thead>
+              <thead><tr><th>{{ $t('app') }}</th><th>{{ $t('time') }}</th></tr></thead>
               <tbody>
                 <tr v-for="(h, i) in history" :key="i">
-                  <td>{{ h.packageId }}</td>
+                  <td>
+                    <div class="app-cell">
+                      <img :src="iconUrl(h.packageId)" width="24" height="24" />
+                      <div>
+                        <div class="app-name">{{ h.appName || h.packageId }}</div>
+                        <div class="app-pkg muted small">{{ h.packageId }}</div>
+                      </div>
+                    </div>
+                  </td>
                   <td>{{ new Date(h.timestamp).toLocaleString() }}</td>
                 </tr>
               </tbody>
@@ -340,7 +366,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, computed } from 'vue'
+import { ref, reactive, onMounted, onUnmounted, computed } from 'vue'
 import toast from '@/components/toaster'
 import { useI18n } from 'vue-i18n'
 import DonutChart from '@/components/DonutChart.vue'
@@ -353,7 +379,7 @@ import { initMutation } from '@/lib/api/mutation'
 import {
   speakMessageGQL, stopSpeakingGQL, showMessageGQL, vibrateGQL,
   locatePhoneGQL, wakeScreenGQL, setTorchGQL, setVolumeGQL, setBrightnessGQL,
-  openDataSettingsGQL, setBedtimeGQL, clearLaunchHistoryGQL,
+  openDataSettingsGQL, setBedtimeGQL, clearLaunchHistoryGQL, removeAppTimeLimitGQL,
 } from '@/lib/api/mutation'
 import {
   volumesGQL, brightnessGQL, torchOnGQL, locateRunningGQL,
@@ -519,8 +545,27 @@ function clearHistory() {
   mClearHistory().then(() => { history.value = [] })
 }
 function formatMs(ms: number): string {
-  const m = Math.floor(ms / 60000); const h = Math.floor(m / 60); const mm = m % 60
-  return h > 0 ? `${h}h ${mm}m` : `${mm}m`
+  if (ms < 0) ms = 0
+  const totalSec = Math.floor(ms / 1000)
+  const h = Math.floor(totalSec / 3600)
+  const m = Math.floor((totalSec % 3600) / 60)
+  const s = totalSec % 60
+  if (h > 0) return `${h}h ${m}m`
+  if (m > 0) return `${m}m ${s.toString().padStart(2, '0')}s`
+  return `${s}s`
+}
+
+const tickNow = ref(Date.now())
+let tickHandle: any
+let liveStateHandle: any
+function liveUsed(t: any): number {
+  void tickNow.value
+  return t.usedMs
+}
+const { mutate: mRemoveLimit } = initMutation({ document: removeAppTimeLimitGQL })
+async function removeLimit(packageId: string) {
+  await mRemoveLimit({ packageId })
+  loadState()
 }
 
 onMounted(async () => {
@@ -543,6 +588,12 @@ onMounted(async () => {
   } catch {}
   loadState()
   loadHistory()
+  tickHandle = setInterval(() => { tickNow.value = Date.now() }, 1000)
+  liveStateHandle = setInterval(() => { loadState() }, 5000)
+})
+onUnmounted(() => {
+  if (tickHandle) clearInterval(tickHandle)
+  if (liveStateHandle) clearInterval(liveStateHandle)
 })
 </script>
 

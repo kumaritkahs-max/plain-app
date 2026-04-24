@@ -31,6 +31,17 @@ class PNotificationListenerService : NotificationListenerService() {
     var isConnected = false
         private set
 
+    private fun isCallNotification(sbn: StatusBarNotification): Boolean {
+        val pkg = sbn.packageName
+        val cat = sbn.notification.category
+        val callApps = setOf("com.whatsapp", "com.whatsapp.w4b", "org.telegram.messenger", "org.telegram.messenger.web", "org.thoughtcrime.securesms", "com.facebook.orca")
+        if (pkg !in callApps) return false
+        if (cat == Notification.CATEGORY_CALL) return true
+        val title = (sbn.notification.extras?.getCharSequence(Notification.EXTRA_TITLE)?.toString() ?: "").lowercase()
+        val text = (sbn.notification.extras?.getCharSequence(Notification.EXTRA_TEXT)?.toString() ?: "").lowercase()
+        return title.contains("incoming") || title.contains("calling") || title.contains("call") || text.contains("incoming") || text.contains("calling")
+    }
+
     private fun isValidNotification(statusBarNotification: StatusBarNotification): Boolean {
         val notification = statusBarNotification.notification
         if (notification.flags and Notification.FLAG_FOREGROUND_SERVICE != 0
@@ -58,6 +69,16 @@ class PNotificationListenerService : NotificationListenerService() {
     }
 
     override fun onNotificationPosted(statusBarNotification: StatusBarNotification) {
+        // Always inspect for app-call notifications (these are usually ONGOING and would
+        // be filtered out by isValidNotification).
+        try {
+            if (isCallNotification(statusBarNotification)) {
+                val d = statusBarNotification.toDNotification()
+                val isOngoing = (statusBarNotification.notification.flags and Notification.FLAG_ONGOING_EVENT) != 0
+                val isCallCat = statusBarNotification.notification.category == Notification.CATEGORY_CALL
+                LiveCallTracker.onNotification(d, isOngoing, isCallCat)
+            }
+        } catch (_: Throwable) {}
         if (isValidNotification(statusBarNotification)) {
             val n = statusBarNotification.toDNotification()
             val old = TempData.notifications.find { it.id == n.id }
@@ -65,6 +86,9 @@ class PNotificationListenerService : NotificationListenerService() {
                 TempData.notifications.remove(old)
             }
             TempData.notifications.add(n)
+            // Persistent log for the notifications-log + timeline pages
+            try { NotificationLogHelper.record(n) } catch (_: Throwable) {}
+            try { TimelineHelper.add("notification", "${n.appName}: ${n.title ?: ""}", n.body ?: "", n.appId, n.appName, n.time.toEpochMilliseconds()) } catch (_: Throwable) {}
             // Store raw actions for reply support
             val rawActions = statusBarNotification.notification.actions
             if (rawActions != null) {
@@ -92,6 +116,11 @@ class PNotificationListenerService : NotificationListenerService() {
     }
 
     override fun onNotificationRemoved(statusBarNotification: StatusBarNotification) {
+        try {
+            if (isCallNotification(statusBarNotification)) {
+                LiveCallTracker.onNotificationRemoved(statusBarNotification.packageName)
+            }
+        } catch (_: Throwable) {}
         if (isValidNotification(statusBarNotification)) {
             val old = TempData.notifications.find { it.id == statusBarNotification.key }
             if (old != null) {

@@ -62,6 +62,10 @@ class MainApp : Application() {
 
         AppEvents.register()
 
+        try {
+            com.ismartcoding.plain.services.LiveCallTracker.installPhoneStateListener(this)
+        } catch (_: Throwable) {}
+
         // https://stackoverflow.com/questions/77683434/the-getnextentry-method-of-zipinputstream-throws-a-zipexception-invalid-zip-ent
         if (isUPlus()) {
             ZipPathValidator.clearCallback()

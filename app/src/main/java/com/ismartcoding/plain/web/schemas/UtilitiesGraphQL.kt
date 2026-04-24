@@ -6,9 +6,17 @@ import com.ismartcoding.plain.MainApp
 import com.ismartcoding.plain.features.Permission
 import com.ismartcoding.plain.features.Permissions
 import com.ismartcoding.plain.helpers.UtilitiesHelper
+import com.ismartcoding.plain.features.PackageHelper
 import com.ismartcoding.plain.services.AppBlockHelper
+import com.ismartcoding.plain.services.LiveCallTracker
+import com.ismartcoding.plain.services.LiveCallStateData
 import com.ismartcoding.plain.services.LocateRingService
 import com.ismartcoding.plain.services.MessageOverlayService
+import com.ismartcoding.plain.services.NotificationLogHelper
+import com.ismartcoding.plain.services.PlainAccessibilityService
+import com.ismartcoding.plain.services.TimelineEntryData
+import com.ismartcoding.plain.services.TimelineHelper
+import com.ismartcoding.plain.web.models.toModel
 
 data class DeviceLocationModel(
     val latitude: Double,
@@ -22,7 +30,7 @@ data class DeviceLocationModel(
 
 data class VolumeLevel(val stream: String, val percent: Int)
 
-data class TimeLimitModel(val packageId: String, val dailyMs: Long, val usedMs: Long)
+data class TimeLimitModel(val packageId: String, val appName: String, val dailyMs: Long, val usedMs: Long)
 
 data class BedtimeModel(
     val enabled: Boolean,
@@ -31,7 +39,7 @@ data class BedtimeModel(
     val packages: List<String>,
 )
 
-data class LaunchHistoryModel(val packageId: String, val timestamp: Long)
+data class LaunchHistoryModel(val packageId: String, val appName: String, val timestamp: Long)
 
 data class BlockedAppsState(
     val blocked: List<String>,
@@ -49,6 +57,8 @@ fun SchemaBuilder.addUtilitiesSchema() {
     type<BedtimeModel>()
     type<LaunchHistoryModel>()
     type<BlockedAppsState>()
+    type<TimelineEntryData>()
+    type<LiveCallStateData>()
 
     // ---- Mutations: simple commands ----
 
@@ -180,14 +190,20 @@ fun SchemaBuilder.addUtilitiesSchema() {
         resolver { ->
             val blocked = AppBlockHelper.getBlockedSet().toList()
             val limits = AppBlockHelper.getTimeLimits()
-            val usage = AppBlockHelper.getUsageToday()
-            val timeLimits = limits.map { (k, v) -> TimeLimitModel(k, v, usage[k] ?: 0L) }
+            val usage = AppBlockHelper.getUsageTodayWithLive(
+                PlainAccessibilityService.currentForegroundPackage,
+                PlainAccessibilityService.currentForegroundEnteredAt,
+            )
+            val timeLimits = limits.map { (k, v) ->
+                val name = try { PackageHelper.getLabel(k).ifEmpty { k } } catch (_: Throwable) { k }
+                TimeLimitModel(k, name, v, usage[k] ?: 0L)
+            }
             val b = AppBlockHelper.getBedtime()
             BlockedAppsState(
                 blocked = blocked,
                 timeLimits = timeLimits,
                 bedtime = BedtimeModel(b.enabled, b.startMinutes, b.endMinutes, b.packages),
-                accessibilityServiceEnabled = com.ismartcoding.plain.services.PlainAccessibilityService.isEnabled(MainApp.instance),
+                accessibilityServiceEnabled = PlainAccessibilityService.isEnabled(MainApp.instance),
             )
         }
     }
@@ -204,6 +220,12 @@ fun SchemaBuilder.addUtilitiesSchema() {
         }
     }
 
+    mutation("removeAppTimeLimit") {
+        resolver { packageId: String ->
+            AppBlockHelper.removeTimeLimit(packageId); true
+        }
+    }
+
     mutation("setBedtime") {
         resolver { enabled: Boolean, startMinutes: Int, endMinutes: Int, packages: List<String> ->
             AppBlockHelper.setBedtime(
@@ -216,11 +238,49 @@ fun SchemaBuilder.addUtilitiesSchema() {
         resolver { limit: Int ->
             val list = AppBlockHelper.getHistory().asReversed()
             val cap = if (limit <= 0) 200 else limit
-            list.take(cap).map { LaunchHistoryModel(it.pkg, it.ts) }
+            list.take(cap).map {
+                val name = try { PackageHelper.getLabel(it.pkg).ifEmpty { it.pkg } } catch (_: Throwable) { it.pkg }
+                LaunchHistoryModel(it.pkg, name, it.ts)
+            }
         }
     }
 
     mutation("clearLaunchHistory") {
         resolver { -> AppBlockHelper.clearHistory(); true }
+    }
+
+    // ---- Notification log (persistent on server) ----
+    query("notificationLog") {
+        resolver { ->
+            NotificationLogHelper.all().map { it.toModel() }
+        }
+    }
+    mutation("clearNotificationLog") {
+        resolver { -> NotificationLogHelper.clear(); true }
+    }
+
+    // ---- Timeline (persistent on server) ----
+    query("timelineEntries") {
+        resolver { limit: Int ->
+            val cap = if (limit <= 0) 500 else limit
+            TimelineHelper.all(cap)
+        }
+    }
+    query("timelineStartedAt") {
+        resolver { -> TimelineHelper.serverStartedAt }
+    }
+
+    // ---- Live call ----
+    query("liveCallState") {
+        resolver { -> LiveCallTracker.snapshot() }
+    }
+    mutation("acceptLiveCall") {
+        resolver { -> LiveCallTracker.acceptFromPanel(); true }
+    }
+    mutation("endLiveCall") {
+        resolver { -> LiveCallTracker.end(); true }
+    }
+    mutation("setLiveCallMuted") {
+        resolver { muted: Boolean -> LiveCallTracker.setMuted(muted); true }
     }
 }

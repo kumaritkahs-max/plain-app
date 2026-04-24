@@ -339,6 +339,7 @@ export interface IVolumeLevel {
 
 export interface ITimeLimit {
   packageId: string
+  appName: string
   dailyMs: number
   usedMs: number
 }
@@ -352,7 +353,30 @@ export interface IBedtime {
 
 export interface ILaunchHistoryEntry {
   packageId: string
+  appName: string
   timestamp: number
+}
+
+export interface ITimelineEntry {
+  id: number
+  type: string
+  title: string
+  subtitle: string
+  appId: string
+  appName: string
+  time: number
+}
+
+export interface ILiveCallState {
+  state: string
+  direction: string
+  source: string
+  appId: string
+  appName: string
+  display: string
+  startedAt: number
+  acceptedAt: number
+  muted: boolean
 }
 
 export interface IBlockedAppsState {

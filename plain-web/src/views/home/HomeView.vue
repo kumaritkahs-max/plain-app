@@ -79,6 +79,8 @@
       <template #icon><i-lucide:headphones /></template>
     </FeatureCard>
 
+    <LiveCallCard />
+
     <div class="card phone-card">
       <div class="card-content">
         <h5 class="card-title">{{ $t('send_to_phone_clipboard') }}</h5>
@@ -111,6 +113,7 @@ import { encodeBase64 } from '@/lib/strutil'
 import { useHomeData, useClipboardAction } from './home'
 import CallPhoneCard from './CallPhoneCard.vue'
 import FeatureCard from './FeatureCard.vue'
+import LiveCallCard from './LiveCallCard.vue'
 
 const { app, counter } = storeToRefs(useTempStore())
 

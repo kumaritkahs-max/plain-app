@@ -1,0 +1,1 @@
+import{bt as e}from"./index-DaiWUsx7.js";function t(a){let s="";e(a.firstName)||e(a.lastName)?s=`${a.lastName}${a.middleName}${a.firstName}`:s=[a.firstName,a.middleName,a.lastName].filter(r=>r).join(" ");const n=a.suffix?`, ${a.suffix}`:"",f=`${a.prefix} ${s} ${n}`.trim();return f||(a.emails.length?a.emails[0].value:"")}export{t as g};

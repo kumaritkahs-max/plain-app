@@ -341,7 +341,7 @@ export const deviceLocationFragment = `
 export const blockedAppsStateFragment = `
   fragment BlockedAppsStateFragment on BlockedAppsState {
     blocked
-    timeLimits { packageId dailyMs usedMs }
+    timeLimits { packageId appName dailyMs usedMs }
     bedtime { enabled startMinutes endMinutes packages }
     accessibilityServiceEnabled
   }
