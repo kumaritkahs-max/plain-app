@@ -14,6 +14,7 @@ import com.ismartcoding.plain.services.CloudflareTunnelManager
 import com.ismartcoding.plain.services.HttpServerService
 import com.ismartcoding.plain.services.LiveCameraService
 import com.ismartcoding.plain.services.LiveMicService
+import com.ismartcoding.plain.services.ScreenCaptureService
 import com.ismartcoding.plain.services.ScreenMirrorService
 import com.ismartcoding.plain.web.HttpServerManager
 
@@ -42,6 +43,11 @@ class ServiceStopBroadcastReceiver : BroadcastReceiver() {
             Constants.ACTION_STOP_SCREEN_MIRROR -> {
                 ScreenMirrorService.instance?.stop()
                 ScreenMirrorService.instance = null
+            }
+
+            Constants.ACTION_STOP_SCREEN_CAPTURE -> {
+                ScreenCaptureService.instance?.stop()
+                ScreenCaptureService.instance = null
             }
 
             Constants.ACTION_STOP_LIVE_CAMERA -> {

@@ -82,6 +82,8 @@ class StartLiveCameraEvent(val facing: String) : ChannelEvent()
 
 class StartLiveMicEvent : ChannelEvent()
 
+class StartScreenCaptureEvent : ChannelEvent()
+
 class RestartAppEvent : ChannelEvent()
 
 class FetchLinkPreviewsEvent(val chat: DChat) : ChannelEvent()

@@ -58,6 +58,9 @@ data class FeatureItem(
                     FeatureItem(AppFeatureType.DLNA_RECEIVER, R.string.dlna_receiver, R.drawable.cast) {
                         navController.navigate(Routing.DlnaReceiver)
                     },
+                    FeatureItem(AppFeatureType.RECORDINGS, R.string.recordings, R.drawable.video) {
+                        navController.navigate(Routing.Recordings())
+                    },
                 )
             )
 

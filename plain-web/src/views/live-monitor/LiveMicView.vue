@@ -6,9 +6,18 @@
 
     <Teleport v-if="isActive" to="#header-end-slot" defer>
       <div class="header-actions">
+        <v-icon-button :tooltip="$t('view_recordings')" @click="goRecordings">
+          <i-lucide:music />
+        </v-icon-button>
         <v-icon-button v-if="streaming" :tooltip="muted ? $t('unmute_mic') : $t('mute_mic')" @click="toggleMute">
           <i-lucide:volume-x v-if="muted" />
           <i-lucide:volume-2 v-else />
+        </v-icon-button>
+        <v-icon-button v-if="streaming && !recording" :tooltip="$t('record')" :loading="recStartLoading" @click="startRec">
+          <i-lucide:circle-dot />
+        </v-icon-button>
+        <v-icon-button v-if="streaming && recording" :tooltip="$t('stop_record')" :loading="recStopLoading" @click="stopRec">
+          <i-lucide:square />
         </v-icon-button>
         <v-filled-button v-if="streaming" class="btn-sm" :loading="stopLoading" @click="stop">
           {{ $t('stop_live_mic') }}
@@ -30,6 +39,7 @@
           <i-lucide:radio class="audio-icon" :class="{ active: state === 'streaming' && !muted }" />
           <p class="audio-title">{{ state === 'streaming' ? $t('live_mic_streaming_now') : $t('connecting') }}</p>
           <p v-if="muted" class="muted-text">{{ $t('mic_muted') }}</p>
+          <div v-if="recording" class="rec-badge"><span class="rec-dot" />{{ $t('recording_now') }}</div>
         </div>
       </div>
     </div>
@@ -39,16 +49,20 @@
 <script setup lang="ts">
 import { computed, onMounted, onBeforeUnmount, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import emitter from '@/plugins/eventbus'
 import toast from '@/components/toaster'
+import { openModal } from '@/components/modal'
+import RecordingSaveModal from '@/components/RecordingSaveModal.vue'
 import type { GqlError } from '@/lib/api/gql-client'
-import { initLazyQuery, liveMicStateGQL } from '@/lib/api/query'
+import { initLazyQuery, liveMicStateGQL, micRecordingStateGQL } from '@/lib/api/query'
 import {
   initMutation,
   startLiveMicGQL,
   stopLiveMicGQL,
   setLiveMicMutedGQL,
+  startMicAudioRecordingGQL,
+  stopMicAudioRecordingGQL,
 } from '@/lib/api/mutation'
 import { WebRTCClient, type SignalingMessage } from '@/lib/webrtc-client'
 import { makeSendWebRTCSignalingFor } from '@/lib/webrtc-signaling'
@@ -56,6 +70,7 @@ import { getPhoneIp } from '@/lib/api/api'
 
 const { t } = useI18n()
 const route = useRoute()
+const router = useRouter()
 const isActive = computed(() => route.path === '/live-mic')
 
 type LiveState = 'idle' | 'requesting' | 'connecting' | 'streaming' | 'failed'
@@ -126,6 +141,45 @@ const start = () => { state.value = 'requesting'; startMutate({}) }
 const stop = () => stopMutate()
 const toggleMute = () => { muted.value = !muted.value; muteMutate({ muted: muted.value }) }
 
+// ---- Local audio recording ----
+const recording = ref(false)
+
+const { mutate: recStartMutate, loading: recStartLoading, onDone: onRecStarted, onError: onRecStartError } =
+  initMutation({ document: startMicAudioRecordingGQL })
+const { loading: recStopLoading } = initMutation({ document: stopMicAudioRecordingGQL })
+
+const { fetch: fetchRecState } = initLazyQuery({
+  handle: (data: any, error: string) => {
+    if (error) return
+    recording.value = !!data?.micRecordingState?.recording
+  },
+  document: micRecordingStateGQL,
+  variables: () => ({}),
+  options: { fetchPolicy: 'no-cache' },
+})
+
+const startRec = () => recStartMutate()
+onRecStarted(() => { recording.value = true; toast(t('recording_now')) })
+onRecStartError((e: GqlError) => toast(t(e.message), 'error'))
+
+function defaultName(prefix: string): string {
+  const d = new Date()
+  const pad = (n: number) => n.toString().padStart(2, '0')
+  return `${prefix}-${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`
+}
+
+const stopRec = () => {
+  openModal(RecordingSaveModal, {
+    title: t('save_audio_recording'),
+    defaultName: defaultName('AUD'),
+    document: stopMicAudioRecordingGQL,
+    onSaved: () => { recording.value = false; toast(t('recording_saved')) },
+    onCancel: () => { recording.value = false },
+  })
+}
+
+const goRecordings = () => router.push('/recordings?type=audio')
+
 onStartError((e: GqlError) => { toast(t(e.message), 'error'); state.value = 'failed' })
 onStopDone(() => { cleanupClient(); state.value = 'idle' })
 onStopError((e: GqlError) => toast(t(e.message), 'error'))
@@ -141,6 +195,7 @@ onMounted(() => {
   emitter.on('webrtc_signaling', onSignaling)
   emitter.on('live_mic_streaming', onLiveMicStreaming)
   fetchState()
+  fetchRecState()
 })
 
 onBeforeUnmount(() => {
@@ -171,4 +226,13 @@ onBeforeUnmount(() => {
 .muted-text { color: var(--md-sys-color-error); margin: 0; }
 .error-text { color: var(--md-sys-color-error); margin: 0; }
 .audio-wrap { display: flex; align-items: center; justify-content: center; }
+.rec-badge {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: rgba(244, 67, 54, 0.9); color: #fff;
+  padding: 4px 10px; border-radius: 999px; font-size: 0.75rem; font-weight: 600;
+  margin-top: 8px;
+}
+.rec-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%;
+  background: #fff; animation: blink 1s ease-in-out infinite; }
+@keyframes blink { 0%, 100% { opacity: 0.3; } 50% { opacity: 1; } }
 </style>

@@ -27,6 +27,7 @@ import com.ismartcoding.plain.events.RequestScreenMirrorAudioEvent
 import com.ismartcoding.plain.events.RestartAppEvent
 import com.ismartcoding.plain.events.StartLiveCameraEvent
 import com.ismartcoding.plain.events.StartLiveMicEvent
+import com.ismartcoding.plain.events.StartScreenCaptureEvent
 import com.ismartcoding.plain.events.StartScreenMirrorEvent
 import androidx.core.content.ContextCompat
 import com.ismartcoding.plain.services.LiveCameraService
@@ -66,6 +67,13 @@ internal fun MainActivity.initEvents() {
                         if (event.audio && !Permission.RECORD_AUDIO.can(this@initEvents)) recordAudioForMirror.launch(android.Manifest.permission.RECORD_AUDIO)
                         else screenCapture.launch(mediaProjectionManager.createScreenCaptureIntent())
                     } catch (e: IllegalStateException) { LogCat.e("Error launching screen capture: ${e.message}") }
+                }
+                is StartScreenCaptureEvent -> {
+                    try {
+                        if (com.ismartcoding.plain.services.ScreenCaptureService.instance == null) {
+                            screenRecordCapture.launch(mediaProjectionManager.createScreenCaptureIntent())
+                        }
+                    } catch (e: IllegalStateException) { LogCat.e("Error launching screen record capture: ${e.message}") }
                 }
                 is StartLiveCameraEvent -> {
                     try {

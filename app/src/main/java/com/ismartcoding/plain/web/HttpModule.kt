@@ -10,6 +10,7 @@ import com.ismartcoding.plain.enums.PasswordType
 import com.ismartcoding.plain.preferences.PasswordTypePreference
 import com.ismartcoding.plain.web.routes.addDLNA
 import com.ismartcoding.plain.web.routes.addFiles
+import com.ismartcoding.plain.web.routes.addRecordings
 import com.ismartcoding.plain.web.routes.addUploads
 import com.ismartcoding.plain.web.routes.addZip
 import io.ktor.http.CacheControl
@@ -179,6 +180,7 @@ object HttpModule {
             addZip()
             addFiles()
             addUploads()
+            addRecordings()
 
             // this api is to fix the websocket takes 10s to get remoteAddress on some phones.
             post("/init") {

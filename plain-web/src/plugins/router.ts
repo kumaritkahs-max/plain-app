@@ -167,6 +167,16 @@ const router = createRouter({
           meta: { group: 'live_call' },
         },
         {
+          path: 'screen-capture',
+          component: () => import('@/views/screen-capture/ScreenCaptureView.vue'),
+          meta: { group: 'screen_capture' },
+        },
+        {
+          path: 'recordings',
+          component: () => import('@/views/recordings/RecordingsView.vue'),
+          meta: { group: 'recordings' },
+        },
+        {
           path: 'device-info',
           component: () => import('@/views/device-info/DeviceInfoView.vue'),
           meta: { group: 'device_info' },

@@ -36,6 +36,7 @@ import com.ismartcoding.plain.web.schemas.addPackageSchema
 import com.ismartcoding.plain.web.schemas.addPomodoroSchema
 import com.ismartcoding.plain.web.schemas.addSchemaTypes
 import com.ismartcoding.plain.web.schemas.addLiveMonitorSchema
+import com.ismartcoding.plain.web.schemas.addRecordingsSchema
 import com.ismartcoding.plain.web.schemas.addScreenMirrorSchema
 import com.ismartcoding.plain.web.schemas.addSmsSchema
 import com.ismartcoding.plain.web.schemas.addTagSchema
@@ -84,6 +85,7 @@ class MainGraphQL(val schema: Schema) {
                 addTagSchema()
                 addScreenMirrorSchema()
                 addLiveMonitorSchema()
+                addRecordingsSchema()
                 addPomodoroSchema()
                 addNotificationSchema()
                 addAppSchema()

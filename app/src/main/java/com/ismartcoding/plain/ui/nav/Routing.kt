@@ -152,4 +152,7 @@ class Routing {
 
     @Serializable
     object AlwaysOn
+
+    @Serializable
+    data class Recordings(val type: String = "")
 }

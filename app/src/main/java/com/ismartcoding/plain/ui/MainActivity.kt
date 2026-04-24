@@ -94,6 +94,12 @@ class MainActivity : AppCompatActivity() {
                 .putExtra("code", result.resultCode).putExtra("data", result.data))
         }
     }
+    internal val screenRecordCapture = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        if (result.resultCode == Activity.RESULT_OK && result.data != null && com.ismartcoding.plain.services.ScreenCaptureService.instance == null) {
+            ContextCompat.startForegroundService(this, Intent(this, com.ismartcoding.plain.services.ScreenCaptureService::class.java)
+                .putExtra("code", result.resultCode).putExtra("data", result.data))
+        }
+    }
     internal val recordAudioForMirror = registerForActivityResult(ActivityResultContracts.RequestPermission()) { _ ->
         try { screenCapture.launch(com.ismartcoding.plain.mediaProjectionManager.createScreenCaptureIntent()) }
         catch (e: IllegalStateException) { LogCat.e("Error launching screen capture: ${e.message}") }

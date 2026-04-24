@@ -1,0 +1,1 @@
+import{Y as d,aj as a,Z as o}from"./index-CZZd-raC.js";const l=e=>({viewAll:()=>{a(e,"/feeds")},viewFeed:s=>{const u=d([{name:"feed_id",op:"",value:s.id}]);a(e,`/feeds?q=${o(u)}`)},viewToday:()=>{const s=d([{name:"today",op:"",value:"true"}]);a(e,`/feeds?q=${o(s)}`)}});export{l as u};

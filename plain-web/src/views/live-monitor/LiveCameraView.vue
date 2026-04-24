@@ -6,6 +6,9 @@
 
     <Teleport v-if="isActive" to="#header-end-slot" defer>
       <div class="header-actions">
+        <v-icon-button :tooltip="$t('view_recordings')" @click="goRecordings">
+          <i-lucide:film />
+        </v-icon-button>
         <v-icon-button v-if="streaming" :tooltip="$t('switch_camera')" @click="switchFacing">
           <i-lucide:repeat-2 />
         </v-icon-button>
@@ -32,6 +35,23 @@
           <i-lucide:loader-circle class="spinner" />
           <span>{{ $t('connecting') }}</span>
         </div>
+        <div v-if="state === 'streaming'" class="rec-overlay">
+          <div v-if="recording" class="rec-badge">
+            <span class="rec-dot" />
+            {{ $t('recording_now') }}
+          </div>
+          <div class="rec-actions">
+            <v-icon-button v-if="!recording" :tooltip="$t('record')" :loading="recStartLoading" @click="startRec">
+              <i-lucide:circle-dot class="rec-icon" />
+            </v-icon-button>
+            <v-icon-button v-else :tooltip="$t('stop_record')" :loading="recStopLoading" @click="stopRec">
+              <i-lucide:square class="rec-icon stop" />
+            </v-icon-button>
+            <v-icon-button :tooltip="$t('take_photo')" :loading="photoLoading" @click="snap">
+              <i-lucide:camera />
+            </v-icon-button>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -40,16 +60,21 @@
 <script setup lang="ts">
 import { computed, onMounted, onBeforeUnmount, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import emitter from '@/plugins/eventbus'
 import toast from '@/components/toaster'
+import { openModal } from '@/components/modal'
+import RecordingSaveModal from '@/components/RecordingSaveModal.vue'
 import type { GqlError } from '@/lib/api/gql-client'
-import { initLazyQuery, liveCameraStateGQL } from '@/lib/api/query'
+import { initLazyQuery, liveCameraStateGQL, cameraRecordingStateGQL } from '@/lib/api/query'
 import {
   initMutation,
   startLiveCameraGQL,
   stopLiveCameraGQL,
   switchLiveCameraFacingGQL,
+  startCameraVideoRecordingGQL,
+  stopCameraVideoRecordingGQL,
+  captureCameraPhotoGQL,
 } from '@/lib/api/mutation'
 import { WebRTCClient, type SignalingMessage } from '@/lib/webrtc-client'
 import { makeSendWebRTCSignalingFor } from '@/lib/webrtc-signaling'
@@ -57,6 +82,7 @@ import { getPhoneIp } from '@/lib/api/api'
 
 const { t } = useI18n()
 const route = useRoute()
+const router = useRouter()
 const isActive = computed(() => route.path === '/live-camera')
 
 type LiveState = 'idle' | 'requesting' | 'connecting' | 'streaming' | 'failed'
@@ -132,6 +158,55 @@ const start = () => { state.value = 'requesting'; startMutate({ facing: facing.v
 const stop = () => stopMutate()
 const switchFacing = () => switchMutate()
 
+// ---- Local recording / photo capture ----
+const recording = ref(false)
+
+const { mutate: recStartMutate, loading: recStartLoading, onDone: onRecStarted, onError: onRecStartError } =
+  initMutation({ document: startCameraVideoRecordingGQL })
+const { loading: recStopLoading } = initMutation({ document: stopCameraVideoRecordingGQL })
+const { loading: photoLoading } = initMutation({ document: captureCameraPhotoGQL })
+
+const { fetch: fetchRecState } = initLazyQuery({
+  handle: (data: any, error: string) => {
+    if (error) return
+    recording.value = !!data?.cameraRecordingState?.recording
+  },
+  document: cameraRecordingStateGQL,
+  variables: () => ({}),
+  options: { fetchPolicy: 'no-cache' },
+})
+
+const startRec = () => recStartMutate()
+onRecStarted(() => { recording.value = true; toast(t('recording_now')) })
+onRecStartError((e: GqlError) => toast(t(e.message), 'error'))
+
+function defaultName(prefix: string): string {
+  const d = new Date()
+  const pad = (n: number) => n.toString().padStart(2, '0')
+  return `${prefix}-${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`
+}
+
+const stopRec = () => {
+  openModal(RecordingSaveModal, {
+    title: t('save_recording'),
+    defaultName: defaultName('VID'),
+    document: stopCameraVideoRecordingGQL,
+    onSaved: () => { recording.value = false; toast(t('recording_saved')) },
+    onCancel: () => { recording.value = false },
+  })
+}
+
+const snap = () => {
+  openModal(RecordingSaveModal, {
+    title: t('save_photo'),
+    defaultName: defaultName('IMG'),
+    document: captureCameraPhotoGQL,
+    onSaved: () => toast(t('photo_saved')),
+  })
+}
+
+const goRecordings = () => router.push('/recordings?type=video')
+
 onStartError((e: GqlError) => { toast(t(e.message), 'error'); state.value = 'failed' })
 onStopDone(() => { cleanupClient(); state.value = 'idle' })
 onStopError((e: GqlError) => toast(t(e.message), 'error'))
@@ -154,6 +229,7 @@ onMounted(() => {
   emitter.on('webrtc_signaling', onSignaling)
   emitter.on('live_camera_streaming', onLiveCameraStreaming)
   fetchState()
+  fetchRecState()
 })
 
 onBeforeUnmount(() => {
@@ -186,4 +262,26 @@ onBeforeUnmount(() => {
 }
 .spinner { font-size: 32px; }
 .error-text { color: var(--md-sys-color-error); margin: 0; }
+.rec-overlay {
+  position: absolute; left: 12px; right: 12px; bottom: 12px;
+  display: flex; align-items: center; justify-content: space-between;
+  pointer-events: none;
+}
+.rec-overlay > * { pointer-events: auto; }
+.rec-actions {
+  display: flex; gap: 8px;
+  background: rgba(0, 0, 0, 0.45); padding: 4px 8px; border-radius: 999px;
+  color: #fff;
+}
+.rec-actions :deep(svg) { color: #fff; }
+.rec-icon { color: #fff; }
+.rec-icon.stop { color: #fff; }
+.rec-badge {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: rgba(244, 67, 54, 0.9); color: #fff;
+  padding: 4px 10px; border-radius: 999px; font-size: 0.75rem; font-weight: 600;
+}
+.rec-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%;
+  background: #fff; animation: blink 1s ease-in-out infinite; }
+@keyframes blink { 0%, 100% { opacity: 0.3; } 50% { opacity: 1; } }
 </style>

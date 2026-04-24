@@ -11,6 +11,8 @@ import com.ismartcoding.plain.Constants
 import com.ismartcoding.plain.R
 import com.ismartcoding.plain.events.EventType
 import com.ismartcoding.plain.events.WebSocketEvent
+import com.ismartcoding.plain.data.RecordingsMetaDb
+import com.ismartcoding.plain.data.RecordingsStore
 import com.ismartcoding.plain.helpers.NotificationHelper
 import com.ismartcoding.plain.services.webrtc.LiveCameraWebRtcManager
 import com.ismartcoding.plain.web.websocket.WebRtcSignalingMessage
@@ -69,6 +71,56 @@ class LiveCameraService : LifecycleService() {
     fun switchFacing() = manager.switchFacing()
     fun handleWebRtcSignaling(clientId: String, message: WebRtcSignalingMessage) {
         manager.handleSignaling(clientId, message)
+    }
+
+    fun isRecording(): Boolean = manager.isRecording()
+    fun recordingStartedAt(): Long = manager.recordingStartedAt
+
+    /** Begin video recording into the hidden recordings/video/ folder. */
+    fun startVideoRecording(): Boolean {
+        if (!running) return false
+        val out = RecordingsStore.allocateFile(RecordingsStore.TYPE_VIDEO)
+        return manager.startRecording(out)
+    }
+
+    /** Stop the current recording and persist a metadata row. */
+    fun stopVideoRecording(name: String, note: String, tags: String): String? {
+        if (!manager.isRecording()) return null
+        val (durationMs, sizeBytes) = manager.stopRecording()
+        // The recording file we just stopped is the most recently modified mp4 in video/.
+        val dir = RecordingsStore.typeDir(RecordingsStore.TYPE_VIDEO)
+        val file = dir.listFiles()?.maxByOrNull { it.lastModified() } ?: return null
+        val row = RecordingsMetaDb.insert(
+            type = RecordingsStore.TYPE_VIDEO,
+            filePath = file.absolutePath,
+            name = name.ifBlank { file.nameWithoutExtension },
+            note = note,
+            tags = tags,
+            durationMs = durationMs,
+            sizeBytes = if (sizeBytes > 0) sizeBytes else file.length(),
+            width = manager.recordingWidth(),
+            height = manager.recordingHeight(),
+        )
+        return row.id
+    }
+
+    /** Capture a single JPEG snapshot and persist it. Returns the recording id. */
+    fun capturePhoto(name: String, note: String, tags: String): String? {
+        if (!running) return null
+        val bytes = manager.capturePhoto() ?: return null
+        val out = RecordingsStore.allocateFile(RecordingsStore.TYPE_PHOTO)
+        out.outputStream().use { it.write(bytes) }
+        val row = RecordingsMetaDb.insert(
+            type = RecordingsStore.TYPE_PHOTO,
+            filePath = out.absolutePath,
+            name = name.ifBlank { out.nameWithoutExtension },
+            note = note,
+            tags = tags,
+            sizeBytes = out.length(),
+            width = manager.recordingWidth(),
+            height = manager.recordingHeight(),
+        )
+        return row.id
     }
 
     fun stop() {

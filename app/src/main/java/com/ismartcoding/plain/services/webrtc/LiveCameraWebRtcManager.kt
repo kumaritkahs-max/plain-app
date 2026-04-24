@@ -2,15 +2,20 @@ package com.ismartcoding.plain.services.webrtc
 
 import android.content.Context
 import com.ismartcoding.lib.logcat.LogCat
+import com.ismartcoding.plain.services.recording.VideoFramePhoto
+import com.ismartcoding.plain.services.recording.VideoFrameRecorder
 import com.ismartcoding.plain.web.websocket.WebRtcSignalingMessage
 import org.webrtc.Camera2Enumerator
 import org.webrtc.CameraVideoCapturer
 import org.webrtc.EglBase
 import org.webrtc.PeerConnectionFactory
 import org.webrtc.SurfaceTextureHelper
+import org.webrtc.VideoFrame
+import org.webrtc.VideoSink
 import org.webrtc.VideoSource
 import org.webrtc.VideoTrack
 import org.webrtc.audio.JavaAudioDeviceModule
+import java.io.File
 
 class LiveCameraWebRtcManager(private val context: Context) {
     private var factory: PeerConnectionFactory? = null
@@ -24,6 +29,22 @@ class LiveCameraWebRtcManager(private val context: Context) {
 
     @Volatile var facing: String = "back"
         private set
+
+    // ---- Local recording / photo capture state ----
+    private val captureWidth = 1280
+    private val captureHeight = 720
+    private var recorder: VideoFrameRecorder? = null
+    @Volatile var recordingStartedAt: Long = 0L; private set
+    @Volatile private var pendingPhoto: ((VideoFrame) -> Unit)? = null
+    private val frameSink = VideoSink { frame ->
+        try {
+            recorder?.onFrame(frame)
+            pendingPhoto?.let { cb -> pendingPhoto = null; cb(frame) }
+        } catch (e: Throwable) {
+            LogCat.e("live camera: frame sink error: ${e.message}")
+        }
+    }
+    private var frameSinkAttached = false
 
     fun start(initialFacing: String): Boolean {
         try {
@@ -57,6 +78,7 @@ class LiveCameraWebRtcManager(private val context: Context) {
             cap.initialize(surfaceHelper, context, videoSource!!.capturerObserver)
             cap.startCapture(1280, 720, 30)
             videoTrack = factory!!.createVideoTrack("live_camera_video", videoSource)
+            videoTrack?.addSink(frameSink); frameSinkAttached = true
             LogCat.d("live camera: capture started 1280x720@30, track id=${videoTrack?.id()}")
             return true
         } catch (e: Throwable) {
@@ -95,7 +117,51 @@ class LiveCameraWebRtcManager(private val context: Context) {
         }
     }
 
+    /** Begin H.264/MP4 recording to [outputFile]. Returns true on success. */
+    @Synchronized
+    fun startRecording(outputFile: File): Boolean {
+        if (recorder != null) return false
+        if (videoTrack == null) return false
+        val r = VideoFrameRecorder(outputFile, captureWidth, captureHeight)
+        if (!r.start()) return false
+        recorder = r
+        recordingStartedAt = System.currentTimeMillis()
+        return true
+    }
+
+    /** Stop the current recording. Returns Pair(durationMs, sizeBytes). */
+    @Synchronized
+    fun stopRecording(): Pair<Long, Long> {
+        val r = recorder ?: return 0L to 0L
+        val sizeBytes = r.stop()
+        val duration = if (recordingStartedAt > 0) System.currentTimeMillis() - recordingStartedAt else 0L
+        recorder = null
+        recordingStartedAt = 0L
+        return duration to sizeBytes
+    }
+
+    fun isRecording(): Boolean = recorder != null
+    fun recordingWidth() = captureWidth
+    fun recordingHeight() = captureHeight
+
+    /** Capture a single JPEG snapshot from the current video stream. */
+    fun capturePhoto(timeoutMs: Long = 2000L): ByteArray? {
+        if (videoTrack == null) return null
+        val latch = java.util.concurrent.CountDownLatch(1)
+        val holder = arrayOfNulls<ByteArray>(1)
+        pendingPhoto = { frame ->
+            holder[0] = VideoFramePhoto.toJpeg(frame)
+            latch.countDown()
+        }
+        return if (latch.await(timeoutMs, java.util.concurrent.TimeUnit.MILLISECONDS)) holder[0] else null
+    }
+
     fun release() {
+        try { stopRecording() } catch (_: Throwable) {}
+        if (frameSinkAttached) {
+            try { videoTrack?.removeSink(frameSink) } catch (_: Throwable) {}
+            frameSinkAttached = false
+        }
         sessions.values.forEach { it.release() }; sessions.clear()
         try { capturer?.stopCapture() } catch (_: Exception) {}
         capturer?.dispose(); capturer = null

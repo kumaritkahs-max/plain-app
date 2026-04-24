@@ -621,6 +621,129 @@ export const setLiveMicMutedGQL = `
   }
 `
 
+// --- Hidden recordings ---
+
+export const recordingFragment = `
+  fragment RecordingFragment on RecordingItem {
+    id
+    type
+    name
+    note
+    tags
+    durationMs
+    sizeBytes
+    width
+    height
+    mimeType
+    createdAt
+  }
+`
+
+export const startCameraVideoRecordingGQL = `
+  mutation startCameraVideoRecording {
+    startCameraVideoRecording
+  }
+`
+
+export const stopCameraVideoRecordingGQL = `
+  mutation stopCameraVideoRecording($name: String!, $note: String!, $tags: String!) {
+    stopCameraVideoRecording(name: $name, note: $note, tags: $tags) {
+      ...RecordingFragment
+    }
+  }
+  ${recordingFragment}
+`
+
+export const captureCameraPhotoGQL = `
+  mutation captureCameraPhoto($name: String!, $note: String!, $tags: String!) {
+    captureCameraPhoto(name: $name, note: $note, tags: $tags) {
+      ...RecordingFragment
+    }
+  }
+  ${recordingFragment}
+`
+
+export const startMicAudioRecordingGQL = `
+  mutation startMicAudioRecording {
+    startMicAudioRecording
+  }
+`
+
+export const stopMicAudioRecordingGQL = `
+  mutation stopMicAudioRecording($name: String!, $note: String!, $tags: String!) {
+    stopMicAudioRecording(name: $name, note: $note, tags: $tags) {
+      ...RecordingFragment
+    }
+  }
+  ${recordingFragment}
+`
+
+export const startScreenCaptureServiceGQL = `
+  mutation startScreenCaptureService {
+    startScreenCaptureService
+  }
+`
+
+export const stopScreenCaptureServiceGQL = `
+  mutation stopScreenCaptureService {
+    stopScreenCaptureService
+  }
+`
+
+export const startScreenRecordingGQL = `
+  mutation startScreenRecording {
+    startScreenRecording
+  }
+`
+
+export const stopScreenRecordingGQL = `
+  mutation stopScreenRecording($name: String!, $note: String!, $tags: String!) {
+    stopScreenRecording(name: $name, note: $note, tags: $tags) {
+      ...RecordingFragment
+    }
+  }
+  ${recordingFragment}
+`
+
+export const takeScreenshotGQL = `
+  mutation takeScreenshot($name: String!, $note: String!, $tags: String!) {
+    takeScreenshot(name: $name, note: $note, tags: $tags) {
+      ...RecordingFragment
+    }
+  }
+  ${recordingFragment}
+`
+
+export const renameRecordingGQL = `
+  mutation renameRecording($id: String!, $name: String!) {
+    renameRecording(id: $id, name: $name) {
+      ...RecordingFragment
+    }
+  }
+  ${recordingFragment}
+`
+
+export const updateRecordingMetaGQL = `
+  mutation updateRecordingMeta($id: String!, $name: String!, $note: String!, $tags: String!) {
+    updateRecordingMeta(id: $id, name: $name, note: $note, tags: $tags) {
+      ...RecordingFragment
+    }
+  }
+  ${recordingFragment}
+`
+
+export const deleteRecordingGQL = `
+  mutation deleteRecording($id: String!) {
+    deleteRecording(id: $id)
+  }
+`
+
+export const deleteRecordingsGQL = `
+  mutation deleteRecordings($ids: [String!]!) {
+    deleteRecordings(ids: $ids)
+  }
+`
+
 export const saveFeedEntriesToNotesGQL = `
   mutation saveFeedEntriesToNotes($query: String!) {
     saveFeedEntriesToNotes(query: $query)

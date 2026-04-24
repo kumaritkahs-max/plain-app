@@ -59,6 +59,14 @@
       <template #icon><i-lucide:mic /></template>
     </FeatureCard>
 
+    <FeatureCard to="/screen-capture" :title="$t('screen_capture')">
+      <template #icon><i-material-symbols:screen-record-rounded /></template>
+    </FeatureCard>
+
+    <FeatureCard to="/recordings" :title="$t('recordings')" :count="recordingsCount">
+      <template #icon><i-lucide:film /></template>
+    </FeatureCard>
+
     <FeatureCard to="/device-info" :title="$t('device_info')">
       <template #icon><i-lucide:smartphone /></template>
     </FeatureCard>
@@ -105,7 +113,7 @@
 
 <script setup lang="ts">
 import { formatFileSize } from '@/lib/format'
-import { computed } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useTempStore } from '@/stores/temp'
 import { storeToRefs } from 'pinia'
 import { buildQuery } from '@/lib/search'
@@ -114,11 +122,24 @@ import { useHomeData, useClipboardAction } from './home'
 import CallPhoneCard from './CallPhoneCard.vue'
 import FeatureCard from './FeatureCard.vue'
 import LiveCallCard from './LiveCallCard.vue'
+import { initLazyQuery, recordingsStatsGQL } from '@/lib/api/query'
 
 const { app, counter } = storeToRefs(useTempStore())
 
 const { mounts } = useHomeData()
 const { clipText, clipTextError, setClipLoading, pasteClipboardText, sendClipboard } = useClipboardAction()
+
+const recordingsCount = ref<number>(-1)
+const { fetch: fetchRecStats } = initLazyQuery({
+  handle: (data: any, error: string) => {
+    if (error) return
+    recordingsCount.value = Number(data?.recordingsStats?.total ?? -1)
+  },
+  document: recordingsStatsGQL,
+  variables: () => ({}),
+  options: { fetchPolicy: 'no-cache' },
+})
+onMounted(() => fetchRecStats())
 
 const filesPath = computed(() => {
   const internalRoot = mounts.value.find((m) => m.driveType === 'INTERNAL_STORAGE')?.mountPoint || app.value.internalStoragePath

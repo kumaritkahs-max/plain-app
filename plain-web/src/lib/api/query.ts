@@ -647,6 +647,82 @@ export const liveMicStateGQL = `
   }
 `
 
+export const cameraRecordingStateGQL = `
+  query {
+    cameraRecordingState {
+      recording
+      startedAt
+    }
+  }
+`
+
+export const micRecordingStateGQL = `
+  query {
+    micRecordingState {
+      recording
+      startedAt
+    }
+  }
+`
+
+export const screenCaptureStateGQL = `
+  query {
+    screenCaptureState {
+      running
+      recording
+      startedAt
+    }
+  }
+`
+
+export const recordingFragmentQ = `
+  fragment RecordingItemFields on RecordingItem {
+    id
+    type
+    name
+    note
+    tags
+    durationMs
+    sizeBytes
+    width
+    height
+    mimeType
+    createdAt
+  }
+`
+
+export const recordingsGQL = `
+  query recordings($type: String!, $offset: Int!, $limit: Int!) {
+    recordings(type: $type, offset: $offset, limit: $limit) {
+      ...RecordingItemFields
+    }
+  }
+  ${recordingFragmentQ}
+`
+
+export const recordingGQL = `
+  query recording($id: String!) {
+    recording(id: $id) {
+      ...RecordingItemFields
+    }
+  }
+  ${recordingFragmentQ}
+`
+
+export const recordingsStatsGQL = `
+  query {
+    recordingsStats {
+      total
+      totalBytes
+      videoCount
+      photoCount
+      audioCount
+      screenCount
+      screenshotCount
+    }
+  }
+`
+
 export const screenMirrorQualityGQL = `
   query {
     screenMirrorQuality {

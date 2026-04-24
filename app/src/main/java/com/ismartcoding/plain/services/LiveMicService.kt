@@ -16,7 +16,10 @@ import com.ismartcoding.plain.Constants
 import com.ismartcoding.plain.R
 import com.ismartcoding.plain.events.EventType
 import com.ismartcoding.plain.events.WebSocketEvent
+import com.ismartcoding.plain.data.RecordingsMetaDb
+import com.ismartcoding.plain.data.RecordingsStore
 import com.ismartcoding.plain.helpers.NotificationHelper
+import com.ismartcoding.plain.services.recording.AudioRecorderHandle
 import com.ismartcoding.plain.services.webrtc.LiveMicWebRtcManager
 import com.ismartcoding.plain.web.websocket.WebRtcSignalingMessage
 
@@ -117,6 +120,8 @@ class LiveMicService : LifecycleService() {
     override fun onDestroy() {
         super.onDestroy()
         running = false
+        try { audioRecorder?.stop() } catch (_: Throwable) {}
+        audioRecorder = null
         unregisterSilencedDetector()
         if (::manager.isInitialized) manager.release()
         instance = null
@@ -129,6 +134,50 @@ class LiveMicService : LifecycleService() {
     }
     fun handleWebRtcSignaling(clientId: String, message: WebRtcSignalingMessage) {
         if (::manager.isInitialized) manager.handleSignaling(clientId, message)
+    }
+
+    // ---- Local audio recording (independent of the WebRTC stream) ----
+    @Volatile private var audioRecorder: AudioRecorderHandle? = null
+    @Volatile private var audioRecordingStartedAt: Long = 0L
+    @Volatile private var audioRecordingFile: java.io.File? = null
+
+    fun isAudioRecording(): Boolean = audioRecorder != null
+    fun audioRecordingStartedAt(): Long = audioRecordingStartedAt
+
+    /** Begin AAC/.m4a recording into recordings/audio/. */
+    @Synchronized
+    fun startAudioRecording(): Boolean {
+        if (audioRecorder != null) return false
+        val out = RecordingsStore.allocateFile(RecordingsStore.TYPE_AUDIO)
+        // Use plain MIC (not VOICE_COMMUNICATION) so playback sounds natural even if the WebRTC
+        // mic stream is using a different source for the live preview.
+        val rec = AudioRecorderHandle(out, audioSource = MediaRecorder.AudioSource.MIC)
+        if (!rec.start()) return false
+        audioRecorder = rec
+        audioRecordingFile = out
+        audioRecordingStartedAt = System.currentTimeMillis()
+        return true
+    }
+
+    /** Stop the audio recording, persist metadata, return the row id (or null). */
+    @Synchronized
+    fun stopAudioRecording(name: String, note: String, tags: String): String? {
+        val rec = audioRecorder ?: return null
+        val file = audioRecordingFile ?: return null
+        val durationMs = rec.stop()
+        audioRecorder = null
+        audioRecordingFile = null
+        audioRecordingStartedAt = 0L
+        val row = RecordingsMetaDb.insert(
+            type = RecordingsStore.TYPE_AUDIO,
+            filePath = file.absolutePath,
+            name = name.ifBlank { file.nameWithoutExtension },
+            note = note,
+            tags = tags,
+            durationMs = durationMs,
+            sizeBytes = file.length(),
+        )
+        return row.id
     }
 
     fun stop() {

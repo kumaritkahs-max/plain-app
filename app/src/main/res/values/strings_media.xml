@@ -58,4 +58,15 @@
     <string name="in_playlist">In playlist</string>
     <string name="empty_playlist">Your playlist is empty</string>
     <string name="remove_from_playlist">Remove from playlist</string>
+    <string name="recordings">Recordings</string>
+    <string name="no_recordings">No recordings yet</string>
+    <string name="recording_type_all">All</string>
+    <string name="recording_type_video">Video</string>
+    <string name="recording_type_photo">Photo</string>
+    <string name="recording_type_audio">Audio</string>
+    <string name="recording_type_screen">Screen</string>
+    <string name="recording_type_screenshot">Screenshot</string>
+    <string name="rename_recording">Rename recording</string>
+    <string name="delete_recording">Delete recording</string>
+    <string name="delete_recording_confirm">Delete this recording? The file will be permanently removed.</string>
 </resources>

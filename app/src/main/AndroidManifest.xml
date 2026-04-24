@@ -204,6 +204,11 @@
             android:foregroundServiceType="mediaProjection" />
 
         <service
+            android:name=".services.ScreenCaptureService"
+            android:exported="false"
+            android:foregroundServiceType="mediaProjection" />
+
+        <service
             android:name=".services.LiveCameraService"
             android:exported="false"
             android:foregroundServiceType="camera" />
@@ -316,6 +321,7 @@
                 <action android:name="${applicationId}.action.START_HTTP_SERVER" />
                 <action android:name="${applicationId}.action.STOP_HTTP_SERVER" />
                 <action android:name="${applicationId}.action.STOP_SCREEN_MIRROR" />
+                <action android:name="${applicationId}.action.STOP_SCREEN_CAPTURE" />
                 <action android:name="${applicationId}.action.STOP_LIVE_CAMERA" />
                 <action android:name="${applicationId}.action.STOP_LIVE_MIC" />
                 <action android:name="${applicationId}.action.REPOST_HTTP_NOTIFICATION" />
