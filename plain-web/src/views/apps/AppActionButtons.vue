@@ -13,6 +13,9 @@
       >
         <i-material-symbols:block />
       </v-icon-button>
+      <v-icon-button v-tooltip="$t('set_time_limit')" class="sm" @click.stop="timeLimit">
+        <i-material-symbols:timer-outline-rounded />
+      </v-icon-button>
       <v-icon-button v-tooltip="$t('uninstall')" class="sm" @click.stop="uninstall">
         <i-material-symbols:delete-forever-outline-rounded />
       </v-icon-button>
@@ -37,12 +40,14 @@ const emit = defineEmits<{
   download: []
   cancelUninstall: []
   toggleBlock: []
+  timeLimit: []
 }>()
 
 function uninstall() { emit('uninstall') }
 function download() { emit('download') }
 function cancelUninstall() { emit('cancelUninstall') }
 function toggleBlock() { emit('toggleBlock') }
+function timeLimit() { emit('timeLimit') }
 </script>
 
 <style scoped>

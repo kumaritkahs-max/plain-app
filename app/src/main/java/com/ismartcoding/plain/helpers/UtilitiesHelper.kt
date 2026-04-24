@@ -5,7 +5,12 @@ import android.content.Intent
 import android.hardware.camera2.CameraManager
 import android.location.Location
 import android.location.LocationManager
+import android.media.AudioAttributes
 import android.media.AudioManager
+import android.media.MediaPlayer
+import android.util.Base64
+import java.io.File
+import java.io.FileOutputStream
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
@@ -291,6 +296,54 @@ object UtilitiesHelper {
                 LogCat.e("openDataSettings failed: ${e.message}", e)
                 false
             }
+        }
+    }
+
+    // ---------------- Play audio (Talk-mode push-to-talk) ----------------
+
+    @Volatile private var playbackPlayer: MediaPlayer? = null
+
+    fun playAudioBase64(base64: String, mime: String): Boolean {
+        return try {
+            val bytes = Base64.decode(base64, Base64.DEFAULT)
+            val ext = when {
+                mime.contains("ogg") -> "ogg"
+                mime.contains("mp4") || mime.contains("aac") -> "m4a"
+                mime.contains("mpeg") || mime.contains("mp3") -> "mp3"
+                else -> "webm"
+            }
+            val tmp = File.createTempFile("talk_", ".$ext", MainApp.instance.cacheDir)
+            FileOutputStream(tmp).use { it.write(bytes) }
+            Handler(Looper.getMainLooper()).post {
+                try {
+                    playbackPlayer?.runCatching { stop(); release() }
+                    val mp = MediaPlayer().apply {
+                        setAudioAttributes(
+                            AudioAttributes.Builder()
+                                .setUsage(AudioAttributes.USAGE_VOICE_COMMUNICATION)
+                                .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+                                .build()
+                        )
+                        setDataSource(tmp.absolutePath)
+                        setOnCompletionListener {
+                            it.release()
+                            playbackPlayer = null
+                            tmp.delete()
+                        }
+                        setOnErrorListener { p, _, _ -> p.release(); playbackPlayer = null; tmp.delete(); true }
+                        prepare()
+                        start()
+                    }
+                    playbackPlayer = mp
+                } catch (e: Exception) {
+                    LogCat.e("playAudioBase64 failed: ${e.message}")
+                    tmp.delete()
+                }
+            }
+            true
+        } catch (e: Exception) {
+            LogCat.e("playAudioBase64 decode failed: ${e.message}")
+            false
         }
     }
 }

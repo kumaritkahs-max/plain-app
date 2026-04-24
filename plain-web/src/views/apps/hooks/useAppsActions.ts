@@ -9,6 +9,8 @@ import { useTempStore, type IUploadItem } from '@/stores/temp'
 import { storeToRefs } from 'pinia'
 import { useDownload, useDownloadItems } from '@/hooks/files'
 import { useFileUpload, useDragDropUpload } from '@/hooks/upload'
+import { openModal } from '@/components/modal'
+import TimeLimitModal from '@/components/TimeLimitModal.vue'
 import { deleteById } from '@/lib/array'
 import emitter from '@/plugins/eventbus'
 import { DataType } from '@/lib/data'
@@ -94,6 +96,15 @@ export function useAppsActions(opts: UseAppsActionsOptions) {
       .catch((e) => toast(e.message, 'error'))
   }
 
+  function timeLimit(item: IPackageItem) {
+    openModal(TimeLimitModal, {
+      packageId: item.id,
+      appName: item.name,
+      initialMs: 0,
+      done: (_ms: number) => toast(t('saved')),
+    })
+  }
+
   function downloadApp(item: IPackageItem) {
     downloadFile(item.path, `${item.name.replace(' ', '')}-${item.id}.apk`)
   }
@@ -151,6 +162,6 @@ export function useAppsActions(opts: UseAppsActionsOptions) {
 
   return {
     fileInput, uploadChanged, dropping, fileDragEnter, fileDragLeave,
-    downloadItems, install, uninstall, cancelUninstall, downloadApp, dropApkFiles, toggleBlock,
+    downloadItems, install, uninstall, cancelUninstall, downloadApp, dropApkFiles, toggleBlock, timeLimit,
   }
 }

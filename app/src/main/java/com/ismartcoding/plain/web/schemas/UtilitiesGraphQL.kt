@@ -170,6 +170,10 @@ fun SchemaBuilder.addUtilitiesSchema() {
         resolver { -> UtilitiesHelper.openDataSettings() }
     }
 
+    mutation("playAudioBase64") {
+        resolver { data: String, mime: String -> UtilitiesHelper.playAudioBase64(data, mime) }
+    }
+
     // ---- App block / parental controls ----
 
     query("blockedAppsState") {

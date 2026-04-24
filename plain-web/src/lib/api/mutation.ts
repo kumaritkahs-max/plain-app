@@ -862,3 +862,9 @@ export const setBedtimeGQL = `
 `
 
 export const clearLaunchHistoryGQL = `mutation { clearLaunchHistory }`
+
+export const playAudioBase64GQL = `
+  mutation playAudioBase64($data: String!, $mime: String!) {
+    playAudioBase64(data: $data, mime: $mime)
+  }
+`

@@ -67,6 +67,18 @@
       <template #icon><i-lucide:wrench /></template>
     </FeatureCard>
 
+    <FeatureCard to="/notifications-log" :title="$t('page_title.notifications_log')">
+      <template #icon><i-lucide:bell /></template>
+    </FeatureCard>
+
+    <FeatureCard to="/timeline" :title="$t('page_title.timeline')">
+      <template #icon><i-lucide:activity /></template>
+    </FeatureCard>
+
+    <FeatureCard to="/talk-mode" :title="$t('page_title.talk_mode')">
+      <template #icon><i-lucide:headphones /></template>
+    </FeatureCard>
+
     <div class="card phone-card">
       <div class="card-content">
         <h5 class="card-title">{{ $t('send_to_phone_clipboard') }}</h5>

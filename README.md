@@ -28,7 +28,11 @@ Open a browser on any desktop or laptop connected to the same Wi-Fi network and 
 | **SMS & Calls** | Read messages and call logs; send SMS from your desktop |
 | **Apps** | List installed apps and export APKs |
 | **Notifications** | Mirror phone notifications to the browser in real time |
+| **Notifications log** | Dedicated page that groups every notification by app + title and shows occurrence counts |
+| **Timeline** | Modern dotted timeline of all device activity (notifications, app launches, screen-mirror, live mic / camera) since the panel connected |
 | **Screen Mirror** | Live-stream the phone screen to the browser with audio and remote control support |
+| **Talk Mode** | Two-way audio between the panel and the phone, plus optional camera view — push-to-talk to send your voice to the phone speaker |
+| **Parental controls** | Per-app blocks, daily time limits (set straight from the apps list with a clock icon), bedtime app picker with status badges, and a "most-used apps" donut chart |
 | **Device Info** | Check battery, storage, network, and system details |
 
 ### 📱 Built-in Android Tools

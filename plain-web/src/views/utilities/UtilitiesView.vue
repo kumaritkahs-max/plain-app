@@ -234,18 +234,39 @@
             <h3>{{ $t('bedtime_title') }}</h3>
             <p class="muted">{{ $t('bedtime_desc') }}</p>
           </div>
+          <div class="header-actions">
+            <span v-if="bedtimeActive" class="badge badge-active">
+              <i-lucide:moon /> {{ $t('currently_active') }}
+            </span>
+            <span v-else-if="bedtime.enabled" class="badge badge-set">{{ $t('set') }}</span>
+            <span v-else class="badge badge-off">{{ $t('off') }}</span>
+          </div>
         </header>
-        <div class="row gap" style="align-items: center">
-          <label class="checkbox-row">
-            <v-checkbox touch-target="wrapper" :checked="bedtime.enabled" @change="bedtime.enabled = !bedtime.enabled" />
-            <span>{{ $t('enabled') }}</span>
-          </label>
+        <div class="row gap" style="align-items: center; flex-wrap: wrap">
           <label>{{ $t('start') }}: <input type="time" v-model="bedtimeStart" class="time-input" /></label>
           <label>{{ $t('end') }}: <input type="time" v-model="bedtimeEnd" class="time-input" /></label>
         </div>
-        <div class="muted">{{ $t('bedtime_packages') }}: {{ bedtime.packages.length }}</div>
-        <div class="row">
-          <v-filled-button @click="saveBedtime">{{ $t('save') }}</v-filled-button>
+        <div class="bedtime-apps">
+          <div class="bedtime-apps-header">
+            <span class="muted">{{ $t('bedtime_packages') }} ({{ bedtime.packages.length }})</span>
+            <v-outlined-button class="btn-sm" @click="pickBedtimeApps">
+              <i-lucide:plus /> {{ $t('add_apps') }}
+            </v-outlined-button>
+          </div>
+          <div v-if="bedtime.packages.length" class="bedtime-icons">
+            <div v-for="pkg in bedtime.packages" :key="pkg" class="bedtime-icon" v-tooltip="pkg">
+              <img :src="iconUrl(pkg)" width="32" height="32" />
+              <button class="remove" @click="removeBedtimePkg(pkg)" v-tooltip="$t('remove')">
+                <i-lucide:x />
+              </button>
+            </div>
+          </div>
+          <div v-else class="muted small">{{ $t('no_apps_picked') }}</div>
+        </div>
+        <div class="row gap">
+          <v-filled-button v-if="!bedtime.enabled" @click="enableBedtime">{{ $t('enable') }}</v-filled-button>
+          <v-outlined-button v-else class="danger-text" @click="disableBedtime">{{ $t('disable') }}</v-outlined-button>
+          <v-outlined-button @click="saveBedtime">{{ $t('save') }}</v-outlined-button>
         </div>
       </section>
 
@@ -271,29 +292,48 @@
         <div v-else class="muted">{{ $t('no_time_limits') }}</div>
       </section>
 
-      <!-- Launch history -->
-      <section class="util-card span-4">
+      <!-- Top apps donut + Launch history -->
+      <section class="util-card span-2">
         <header>
+          <i-lucide:pie-chart class="icon" />
+          <div>
+            <h3>{{ $t('most_used_apps') }}</h3>
+            <p class="muted">{{ $t('most_used_apps_desc') }}</p>
+          </div>
+        </header>
+        <DonutChart v-if="topApps.length" :data="topApps" :sub-label="$t('apps')" />
+        <div v-else class="muted">{{ $t('no_launch_history') }}</div>
+      </section>
+
+      <section class="util-card span-2">
+        <header @click="historyOpen = !historyOpen" style="cursor: pointer">
           <i-lucide:history class="icon" />
           <div>
             <h3>{{ $t('launch_history_title') }}</h3>
             <p class="muted">{{ $t('launch_history_desc') }}</p>
           </div>
           <div class="header-actions">
-            <v-outlined-button class="btn-sm" @click="loadHistory">{{ $t('refresh') }}</v-outlined-button>
-            <v-outlined-button class="btn-sm" @click="clearHistory">{{ $t('clear') }}</v-outlined-button>
+            <v-outlined-button class="btn-sm" @click.stop="loadHistory">{{ $t('refresh') }}</v-outlined-button>
+            <v-outlined-button class="btn-sm" @click.stop="clearHistory">{{ $t('clear') }}</v-outlined-button>
+            <v-icon-button class="sm" :class="{ rotated: historyOpen }" v-tooltip="historyOpen ? $t('collapse') : $t('expand')">
+              <i-lucide:chevron-down />
+            </v-icon-button>
           </div>
         </header>
-        <table v-if="history.length" class="data-table">
-          <thead><tr><th>{{ $t('package') }}</th><th>{{ $t('time') }}</th></tr></thead>
-          <tbody>
-            <tr v-for="(h, i) in history" :key="i">
-              <td>{{ h.packageId }}</td>
-              <td>{{ new Date(h.timestamp).toLocaleString() }}</td>
-            </tr>
-          </tbody>
-        </table>
-        <div v-else class="muted">{{ $t('no_launch_history') }}</div>
+        <transition name="collapse">
+          <div v-if="historyOpen">
+            <table v-if="history.length" class="data-table">
+              <thead><tr><th>{{ $t('package') }}</th><th>{{ $t('time') }}</th></tr></thead>
+              <tbody>
+                <tr v-for="(h, i) in history" :key="i">
+                  <td>{{ h.packageId }}</td>
+                  <td>{{ new Date(h.timestamp).toLocaleString() }}</td>
+                </tr>
+              </tbody>
+            </table>
+            <div v-else class="muted">{{ $t('no_launch_history') }}</div>
+          </div>
+        </transition>
       </section>
     </div>
   </div>
@@ -303,6 +343,12 @@
 import { ref, reactive, onMounted, computed } from 'vue'
 import toast from '@/components/toaster'
 import { useI18n } from 'vue-i18n'
+import DonutChart from '@/components/DonutChart.vue'
+import { openModal } from '@/components/modal'
+import AppPickerModal from '@/components/AppPickerModal.vue'
+import { useTempStore } from '@/stores/temp'
+import { storeToRefs } from 'pinia'
+import { getFileUrlByPath } from '@/lib/api/file'
 import { initMutation } from '@/lib/api/mutation'
 import {
   speakMessageGQL, stopSpeakingGQL, showMessageGQL, vibrateGQL,
@@ -425,6 +471,36 @@ function timeToMinutes(s: string): number {
   const [h, m] = s.split(':').map(Number)
   return (h || 0) * 60 + (m || 0)
 }
+const { urlTokenKey } = storeToRefs(useTempStore())
+function iconUrl(pkgId: string) { return getFileUrlByPath(urlTokenKey.value, 'pkgicon://' + pkgId) }
+const historyOpen = ref(false)
+const bedtimeActive = computed(() => {
+  if (!bedtime.enabled) return false
+  const now = new Date()
+  const m = now.getHours() * 60 + now.getMinutes()
+  const s = state.value?.bedtime.startMinutes ?? timeToMinutes(bedtimeStart.value)
+  const e = state.value?.bedtime.endMinutes ?? timeToMinutes(bedtimeEnd.value)
+  return s <= e ? (m >= s && m < e) : (m >= s || m < e)
+})
+const topApps = computed(() => {
+  const m = new Map<string, number>()
+  for (const h of history.value) m.set(h.packageId, (m.get(h.packageId) || 0) + 1)
+  return Array.from(m.entries())
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 6)
+    .map(([label, value]) => ({ label, value }))
+})
+function pickBedtimeApps() {
+  openModal(AppPickerModal, {
+    title: t('select_bedtime_apps'),
+    initial: bedtime.packages,
+    done: (ids: string[]) => { bedtime.packages = ids },
+  })
+}
+function removeBedtimePkg(p: string) { bedtime.packages = bedtime.packages.filter((x) => x !== p) }
+function enableBedtime() { bedtime.enabled = true; saveBedtime() }
+function disableBedtime() { bedtime.enabled = false; saveBedtime() }
+
 const { mutate: mBedtime } = initMutation({ document: setBedtimeGQL })
 function saveBedtime() {
   mBedtime({
@@ -570,4 +646,30 @@ onMounted(async () => {
 @media (max-width: 720px) {
   .util-card.span-2, .util-card.span-4 { grid-column: span 1; }
 }
+.badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 0.75rem; padding: 4px 10px; border-radius: 999px; font-weight: 500;
+}
+.badge-active { background: #2e7d32; color: white; }
+.badge-set { background: var(--md-sys-color-primary-container); color: var(--md-sys-color-on-primary-container); }
+.badge-off { background: var(--md-sys-color-surface-variant); color: var(--md-sys-color-on-surface-variant); }
+.danger-text { --md-outlined-button-label-text-color: #c62828; }
+.bedtime-apps { background: var(--md-sys-color-surface); border-radius: 12px; padding: 10px 12px; }
+.bedtime-apps-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.bedtime-icons { display: flex; flex-wrap: wrap; gap: 6px; }
+.bedtime-icon {
+  position: relative; width: 36px; height: 36px;
+  img { border-radius: 6px; width: 32px; height: 32px; }
+  .remove {
+    position: absolute; top: -4px; right: -4px;
+    background: var(--md-sys-color-error); color: var(--md-sys-color-on-error);
+    border: none; border-radius: 50%; width: 16px; height: 16px;
+    display: flex; align-items: center; justify-content: center; cursor: pointer;
+    svg { width: 10px; height: 10px; }
+  }
+}
+.muted.small { font-size: 0.8125rem; }
+.rotated { transform: rotate(180deg); transition: transform 0.2s; }
+.collapse-enter-active, .collapse-leave-active { transition: opacity 0.2s; }
+.collapse-enter-from, .collapse-leave-to { opacity: 0; }
 </style>

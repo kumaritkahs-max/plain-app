@@ -172,6 +172,21 @@ const router = createRouter({
           meta: { group: 'utilities' },
         },
         {
+          path: 'notifications-log',
+          component: () => import('@/views/notifications-log/NotificationsLogView.vue'),
+          meta: { group: 'notifications_log' },
+        },
+        {
+          path: 'timeline',
+          component: () => import('@/views/timeline/TimelineView.vue'),
+          meta: { group: 'timeline' },
+        },
+        {
+          path: 'talk-mode',
+          component: () => import('@/views/talk-mode/TalkModeView.vue'),
+          meta: { group: 'talk_mode' },
+        },
+        {
           path: 'app-settings',
           component: () => import('@/views/app-settings/AppSettingsView.vue'),
           meta: { group: 'app_settings' },
